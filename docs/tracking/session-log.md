@@ -1,0 +1,14 @@
+# Log sesi (append-only)
+
+- 2026-10-23 — Sesi 1: audit repo; temukan template library, stub svelte.config.js, .env placeholder (lihat baseline.md). Baseline check/build FAIL pra-ada.
+- 2026-10-23 — Instruksi pengguna: Excel uji di ~/Downloads; tanpa commit/push (CLAUDE.md); closed-loop docs; landing hanya H1+H2 tanpa badge; kode tanpa komentar; struktur feature-based.
+- 2026-10-23 — Dibangun: scripts/track.ts, scripts/guard.ts, docker-compose.dev.yml (PostgreSQL 17.6 healthy di 127.0.0.1:55432), .env.local/.env.test, ledger 53 AC dan 54 task (setelah T-007 manajemen tes).
+- 2026-10-23 — Temuan T-011: createUser plugin admin tidak menegakkan panjang password; wajib divalidasi di layanan dosen (T-032) dengan passwordIssues. Tes yang mengasumsikan sebaliknya dihapus.
+- 2026-10-23 — Temuan keamanan: (1) limiter Better Auth tidak melindungi jalur server action → limiter sendiri (D-21); (2) adapter-node default https (D-22); (3) HSTS dari ORIGIN (D-23). Smoke test HTTP: sign-up 400, login salah 401, RBAC 403, lintas-origin 403, cookie HttpOnly+SameSite=Lax.
+
+- 2026-10-23 10:48 UTC — P5 UI: wizard impor + riwayat + laporan + CSV galat dibangun untuk dosen dan admin; seed:demo dibuat; duplikat dibatasi per pengunggah (celah kebocoran nama berkas ditutup + tes).
+- 2026-10-23 10:55 UTC — Celah ditutup: setAssessmentCpmkMapping kini menolak CPMK dari mata kuliah lain; layanan assessment (komponen/pemetaan/hitung ulang) menegakkan akses per kelas + tes RBAC. Analitik kelas/program (T-064/065) dan grafik SVG (T-063) selesai.
+- 2026-10-23 11:11 UTC — T-062 (profil mahasiswa) dan T-066 (PDF transkrip/laporan kelas) lulus tes; bug tata letak PDF (judul terpecah, halaman hantu) ditemukan lewat tes + render visual lalu diperbaiki. Detail kelas/profil diuji di browser; bug form bersarang di editor komponen diperbaiki.
+- 2026-10-23 15:27 UTC — Sesi akhir: UI wizard impor, kelas, profil, CQI, kurikulum, laporan, audit selesai; E2E 68 lulus (a11y terang/gelap, responsif); dokumen setup/arsitektur/kontrak impor/lineage/E2E; laporan verifikasi akhir ditulis; semua tugas ledger selesai.
+- 2026-10-23 19:54 UTC — Sesi 2026-10-24: tema Blue-White, landing gaya dots, fitur profiles (blueprint, seed idempoten), katalog 88 mata kuliah Kurikulum 2021 dan 13 dosen tetap (daftar dosen di luar repositori), UX anti-bingung (menu alur kerja, panduan istilah, daftar persiapan, stepper impor, scrollbar), migrasi dan seed produksi Neon, tiga deploy Vercel, uji unggah produksi. Gerbang akhir: check 0 galat, guard lulus, unit 268, integrasi 271, E2E 85, build lulus.
+- 2026-10-23 21:21 UTC — Impor Semester 1-7 ke produksi selesai: 92 dari 102 sheet, 471 mahasiswa, 3139 pendaftaran, 12843 nilai; pemetaan otomatis ditambahkan ke wizard dan tiga cacat pemetaan diperbaiki.

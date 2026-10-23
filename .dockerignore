@@ -1,0 +1,15 @@
+node_modules
+.svelte-kit
+build
+.git
+.env
+.env.*
+!.env.example
+.data
+test-results
+playwright-report
+tests/fixtures/local
+*.xlsx
+*.xls
+*.csv
+*.pdf

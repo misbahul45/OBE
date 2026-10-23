@@ -1,0 +1,15 @@
+.env
+.env.*
+.e2e-state
+.playwright-mcp
+.svelte-kit
+.vercel
+build
+node_modules
+playwright-report
+test-results
+tests
+docs
+scripts
+drizzle.config.ts
+playwright.config.ts
