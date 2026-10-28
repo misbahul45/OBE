@@ -6,7 +6,7 @@
 	import { Card, CardContent, CardHeader, CardTitle } from '#lib/components/ui/card/index.ts';
 	import { Input } from '#lib/components/ui/input/index.ts';
 	import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '#lib/components/ui/table/index.ts';
-	import { BarChart, Histogram, formatValue } from '#lib/shared/charts/index.ts';
+	import { BarChart, Dumbbell, Histogram, LinkMatrix, RadarChart, StackedShare, TraceFlow, formatValue } from '#lib/shared/charts/index.ts';
 	import { componentTypes } from '#lib/features/curriculum/index.ts';
 	import { componentTypeLabel } from '#lib/features/imports/index.ts';
 	import type { OfferingAnalytics, RosterRow } from '#lib/features/outcomes/index.ts';
@@ -37,6 +37,19 @@
 	const stamp = new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium', timeStyle: 'short' });
 	const typeOptions = componentTypes.map((value) => ({ value, label: componentTypeLabel[value] }));
 	const distinctTargets = $derived([...new Set(analytics.cpl.map((c) => c.target).filter((t): t is number => t !== null))]);
+	const thresholdText = $derived(analytics.thresholds.studentScore === null ? 'Ambang ketercapaian belum dikonfigurasi.' : `Garis merah menandai ambang ${formatValue(analytics.thresholds.studentScore)} (${analytics.thresholds.source === 'excel' ? 'dari berkas Excel' : 'dari kebijakan OBE'}).`);
+	const toShare = (stat: (typeof analytics.cpmk)[number]) => ({ label: stat.code, achieved: stat.distribution.achieved, notAchieved: stat.distribution.notAchieved, insufficient: stat.distribution.insufficient + stat.distribution.unconfigured, ratio: stat.distribution.ratioAchieved, meets: stat.meetsClassRatio });
+	const cpmkShares = $derived(analytics.cpmk.map(toShare));
+	const cplShares = $derived(analytics.cpl.map(toShare));
+	const reachedCount = (stats: typeof analytics.cpmk) => stats.filter((s) => s.meetsClassRatio === true).length;
+	const judgedCount = (stats: typeof analytics.cpmk) => stats.filter((s) => s.meetsClassRatio !== null).length;
+	const basisLabel = { calculated: 'Hitung sistem', imported_reference: 'Kolom Excel' } as const;
+	const comparisons = $derived([...analytics.cpmk, ...analytics.cpl].filter((s) => s.basis === 'calculated' && s.reference !== null).map((s) => ({ label: s.code, first: s.reference!.mean, second: s.mean })));
+	const trace = $derived(analytics.trace);
+	const componentRows = $derived(trace ? trace.nodes.filter((n) => n.column === 0) : []);
+	const cpmkNodes = $derived(trace ? trace.nodes.filter((n) => n.column === 1) : []);
+	const cplNodes = $derived(trace ? trace.nodes.filter((n) => n.column === 2) : []);
+	const weightOf = (from: string, to: string) => trace?.links.find((l) => l.from === from && l.to === to)?.display ?? null;
 	const generalMessage = $derived(form && !form.component ? form : null);
 
 </script>
@@ -59,7 +72,7 @@
 	{/each}
 </div>
 
-<dl class="mb-8 grid grid-cols-2 gap-3 md:grid-cols-4">
+<dl class="mb-8 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
 	<div class="rounded-md border bg-card p-3"><dt class="text-xs text-muted-foreground">Mahasiswa</dt><dd class="mt-0.5 text-2xl font-semibold tabular-nums">{analytics.studentCount}</dd></div>
 	<div class="rounded-md border bg-card p-3">
 		<dt class="text-xs text-muted-foreground">Komponen dan bobot</dt>
@@ -70,50 +83,82 @@
 		<dd class="mt-0.5 text-2xl font-semibold tabular-nums">{formatValue(analytics.finalScore.mean)}</dd>
 		<dd class="text-xs text-muted-foreground">{analytics.finalScore.complete} lengkap · {analytics.finalScore.incomplete} belum lengkap</dd>
 	</div>
+	<div class="rounded-md border bg-card p-3">
+		<dt class="text-xs text-muted-foreground">CPMK memenuhi rasio kelas</dt>
+		<dd class="mt-0.5 text-2xl font-semibold tabular-nums">{reachedCount(analytics.cpmk)} <span class="text-sm font-normal text-muted-foreground">dari {judgedCount(analytics.cpmk)}</span></dd>
+		<dd class="text-xs text-muted-foreground">{analytics.thresholds.classRatio === null ? 'rasio kelas belum diatur' : `rasio minimal ${formatValue(analytics.thresholds.classRatio)}%`}</dd>
+	</div>
+	<div class="rounded-md border bg-card p-3">
+		<dt class="text-xs text-muted-foreground">CPL memenuhi rasio kelas</dt>
+		<dd class="mt-0.5 text-2xl font-semibold tabular-nums">{reachedCount(analytics.cpl)} <span class="text-sm font-normal text-muted-foreground">dari {judgedCount(analytics.cpl)}</span></dd>
+		<dd class="text-xs text-muted-foreground">{analytics.thresholds.studentScore === null ? 'ambang belum diatur' : `ambang nilai ${formatValue(analytics.thresholds.studentScore)}`}</dd>
+	</div>
 	<div class="rounded-md border bg-card p-3"><dt class="text-xs text-muted-foreground">Terakhir dihitung</dt><dd class="mt-1 text-sm font-medium">{analytics.lastRunAt ? stamp.format(new Date(analytics.lastRunAt)) : 'Belum pernah'}</dd></div>
 </dl>
 
 <section aria-labelledby="results-heading" class="mb-10 space-y-4">
 	<h2 id="results-heading" class="text-lg font-semibold">Hasil capaian</h2>
 	<div class="grid gap-4 xl:grid-cols-2">
-		<BarChart title="Rata-rata CPMK kelas" description={analytics.policy?.threshold != null ? `Garis merah menandai ambang ketercapaian ${formatValue(analytics.policy.threshold)}.` : 'Ambang ketercapaian belum dikonfigurasi.'} items={analytics.cpmk.map((c) => ({ label: c.code, value: c.mean }))} max={100} target={analytics.policy?.threshold ?? null} targetLabel="Ambang" emptyText="Belum ada hasil CPMK. Petakan komponen ke CPMK dan pastikan nilai sudah diimpor." />
-		<BarChart title="Rata-rata CPL kelas" description={distinctTargets.length > 1 ? 'Target CPL berbeda per CPL; lihat tabel untuk target masing-masing.' : undefined} items={analytics.cpl.map((c) => ({ label: c.code, value: c.mean, note: c.target === null ? 'target belum diatur' : `target ${formatValue(c.target)}` }))} max={100} target={distinctTargets.length === 1 ? distinctTargets[0] : null} targetLabel="Target" emptyText="Belum ada hasil CPL. Petakan CPMK ke CPL pada halaman Kurikulum." />
+		<StackedShare title="Sebaran capaian CPMK" description="Berapa mahasiswa yang mencapai ambang pada tiap CPMK, dan apakah rasionya memenuhi syarat kelas." items={cpmkShares} classRatio={analytics.thresholds.classRatio} emptyText="Belum ada hasil CPMK. Impor berkas Excel yang memuat kolom CPMK atau petakan komponen ke CPMK." />
+		<StackedShare title="Sebaran capaian CPL" description="Sebaran mahasiswa yang mencapai ambang pada tiap CPL kelas ini." items={cplShares} classRatio={analytics.thresholds.classRatio} emptyText="Belum ada hasil CPL. Impor berkas Excel yang memuat kolom CPL atau petakan CPMK ke CPL." />
+		<RadarChart title="Profil CPL kelas" description="Rata-rata nilai tiap CPL dibandingkan ambangnya." axes={analytics.cpl.map((c) => ({ label: c.code, value: c.mean, target: c.target, note: c.basis ? basisLabel[c.basis] : undefined }))} emptyText="Belum ada hasil CPL." />
+		<BarChart title="Rata-rata CPMK kelas" description={thresholdText} items={analytics.cpmk.map((c) => ({ label: c.code, value: c.mean, note: c.basis ? basisLabel[c.basis] : undefined }))} max={100} target={analytics.thresholds.studentScore} targetLabel="Ambang" emptyText="Belum ada hasil CPMK." />
 		<Histogram title="Sebaran nilai akhir" description="Jumlah mahasiswa pada tiap rentang nilai akhir (hanya yang nilainya lengkap)." bins={analytics.finalScore.bins} emptyText={analytics.finalScore.notConfigured ? 'Nilai akhir belum dapat dihitung karena bobot komponen belum lengkap atau tidak berjumlah 100%.' : 'Belum ada nilai akhir yang lengkap.'} />
 		<BarChart title="Rata-rata per komponen" description="Nilai dinormalisasi ke skala 0–100." items={analytics.components.map((c) => ({ label: c.code, value: c.mean, note: `${c.scored} nilai, ${c.blank} kosong` }))} max={100} emptyText="Belum ada komponen penilaian." />
+		{#if comparisons.length}
+			<Dumbbell title="Nilai Excel dibanding hitung sistem" description="Selisih rata-rata kelas antara kolom CPMK/CPL pada Excel dan hasil hitung sistem." items={comparisons} />
+		{/if}
 	</div>
 
-	{#if analytics.cpmk.length}
-		<Card>
-			<CardHeader><CardTitle><h3 class="text-base font-semibold">Ketercapaian CPMK</h3></CardTitle></CardHeader>
-			<CardContent class="overflow-x-auto">
-				<Table>
-					<TableHeader>
-						<TableRow><TableHead>CPMK</TableHead><TableHead class="text-right">Rata-rata</TableHead><TableHead class="text-right">Tercapai</TableHead><TableHead class="text-right">Belum</TableHead><TableHead class="text-right">Data kurang</TableHead><TableHead class="text-right">Rasio</TableHead><TableHead>Status kelas</TableHead><TableHead>Referensi Excel</TableHead></TableRow>
-					</TableHeader>
-					<TableBody>
-						{#each analytics.cpmk as cpmk (cpmk.id)}
-							<TableRow>
-								<TableCell class="font-medium">{cpmk.code}</TableCell>
-								<TableCell class="text-right tabular-nums">{formatValue(cpmk.mean)}</TableCell>
-								<TableCell class="text-right tabular-nums">{cpmk.distribution.achieved}</TableCell>
-								<TableCell class="text-right tabular-nums">{cpmk.distribution.notAchieved}</TableCell>
-								<TableCell class="text-right tabular-nums">{cpmk.distribution.insufficient}</TableCell>
-								<TableCell class="text-right tabular-nums">{cpmk.distribution.ratioAchieved === null ? '—' : `${formatValue(cpmk.distribution.ratioAchieved)}%`}</TableCell>
-								<TableCell>
-									{#if cpmk.target === null}<StatusBadge status="neutral" label="Ambang belum diatur" />
-									{:else if cpmk.meetsClassRatio === null}<StatusBadge status="neutral" label="Rasio kelas belum diatur" />
-									{:else if cpmk.meetsClassRatio}<StatusBadge status="success" label="Memenuhi rasio kelas" />
-									{:else}<StatusBadge status="warning" label="Di bawah rasio kelas" />{/if}
-								</TableCell>
-								<TableCell class="text-xs">
-									{#if cpmk.reference}Rata-rata {formatValue(cpmk.reference.mean)} · {cpmk.reference.differing} berbeda dari hasil hitung{:else}<span class="text-muted-foreground">Tidak ada</span>{/if}
-								</TableCell>
-							</TableRow>
-						{/each}
-					</TableBody>
-				</Table>
-			</CardContent>
-		</Card>
+	{#each [{ id: 'cpmk', label: 'CPMK', rows: analytics.cpmk }, { id: 'cpl', label: 'CPL', rows: analytics.cpl }] as group (group.id)}
+		{#if group.rows.length}
+			<Card>
+				<CardHeader><CardTitle><h3 class="text-base font-semibold">Ketercapaian {group.label}</h3></CardTitle></CardHeader>
+				<CardContent class="overflow-x-auto">
+					<Table>
+						<TableHeader>
+							<TableRow><TableHead>{group.label}</TableHead><TableHead class="text-right">Rata-rata</TableHead><TableHead class="text-right">Ambang</TableHead><TableHead class="text-right">Tercapai</TableHead><TableHead class="text-right">Belum</TableHead><TableHead class="text-right">Data kurang</TableHead><TableHead class="text-right">Rasio</TableHead><TableHead>Status kelas</TableHead><TableHead>Sumber nilai</TableHead></TableRow>
+						</TableHeader>
+						<TableBody>
+							{#each group.rows as row (row.id)}
+								<TableRow>
+									<TableCell class="font-medium">{row.code}</TableCell>
+									<TableCell class="text-right tabular-nums">{formatValue(row.mean)}</TableCell>
+									<TableCell class="text-right tabular-nums">{formatValue(row.target)}{#if row.targetSource === 'excel'}<span class="text-xs text-muted-foreground"> (Excel)</span>{/if}</TableCell>
+									<TableCell class="text-right tabular-nums">{row.distribution.achieved}</TableCell>
+									<TableCell class="text-right tabular-nums">{row.distribution.notAchieved}</TableCell>
+									<TableCell class="text-right tabular-nums">{row.distribution.insufficient}</TableCell>
+									<TableCell class="text-right tabular-nums">{row.distribution.ratioAchieved === null ? '—' : `${formatValue(row.distribution.ratioAchieved)}%`}</TableCell>
+									<TableCell>
+										{#if row.target === null}<StatusBadge status="neutral" label="Ambang belum diatur" />
+										{:else if row.meetsClassRatio === null}<StatusBadge status="neutral" label="Rasio kelas belum diatur" />
+										{:else if row.meetsClassRatio}<StatusBadge status="success" label="Memenuhi rasio kelas" />
+										{:else}<StatusBadge status="warning" label="Di bawah rasio kelas" />{/if}
+									</TableCell>
+									<TableCell class="text-xs">
+										{#if row.basis}{basisLabel[row.basis]}{:else}<span class="text-muted-foreground">Belum ada</span>{/if}
+										{#if row.reference && row.basis === 'calculated'}<span class="text-muted-foreground"> · {row.reference.differing} berbeda dari Excel</span>{/if}
+									</TableCell>
+								</TableRow>
+							{/each}
+						</TableBody>
+					</Table>
+				</CardContent>
+			</Card>
+		{/if}
+	{/each}
+</section>
+
+<section aria-labelledby="trace-heading" class="mb-10 space-y-4">
+	<h2 id="trace-heading" class="text-lg font-semibold">Jejak capaian: komponen, CPMK, CPL</h2>
+	{#if trace}
+		<TraceFlow title="Dari komponen penilaian ke CPL" description="Arahkan penunjuk atau fokuskan satu simpul untuk menyorot jalurnya. Warna simpul menunjukkan apakah rasio kelas terpenuhi." nodes={trace.nodes} links={trace.links} sourceLabel={`${trace.source.fileName}, sheet ${trace.source.sheetName}`} />
+		<div class="grid gap-4 xl:grid-cols-2">
+			<LinkMatrix title="Koefisien komponen terhadap CPMK" description="Baris adalah CPMK, kolom adalah komponen penilaian." rows={cpmkNodes.map((n) => n.code)} columns={componentRows.map((n) => n.code)} cells={cpmkNodes.map((m) => componentRows.map((k) => weightOf(k.id, m.id)))} digits={2} />
+			<LinkMatrix title="Bobot CPMK terhadap CPL" description="Baris adalah CPL, kolom adalah CPMK. Bobot yang lebih besar berarti kontribusi CPMK pada CPL lebih besar." rows={cplNodes.map((n) => n.code)} columns={cpmkNodes.map((n) => n.code)} cells={cplNodes.map((l) => cpmkNodes.map((m) => weightOf(m.id, l.id)))} digits={2} />
+		</div>
+	{:else}
+		<EmptyState title="Jejak belum tersedia" description="Jejak dibaca dari matriks CPMK dan CPL pada sheet Excel. Impor berkas nilai kelas ini (atau impor ulang berkas yang sama) agar matriksnya tersimpan." actionLabel="Impor nilai" actionHref={importHref} />
 	{/if}
 </section>
 

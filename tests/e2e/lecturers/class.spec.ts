@@ -24,7 +24,9 @@ test('halaman kelas menampilkan KPI, grafik beralt teks dengan tabel pengganti, 
 	await expect(figure.getByRole('table')).toContainText(/Tercapai|Belum tercapai/);
 
 	await expect(page.getByRole('heading', { name: 'Sebaran nilai akhir' })).toBeVisible();
-	await expect(page.getByRole('heading', { name: 'Ketercapaian CPMK' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Sebaran capaian CPMK' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /Jejak capaian/ })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'Ketercapaian CPMK', exact: true })).toBeVisible();
 	await expect(page.getByRole('heading', { level: 2, name: /Mahasiswa \(15\)/ })).toBeVisible();
 });
 

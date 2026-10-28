@@ -2,10 +2,10 @@ import { beforeAll, describe, expect, test } from 'bun:test';
 import { activatePolicy, createCpl, createCpmk, createDraftPolicy, setAssessmentCpmkMapping, setCplTarget, setCpmkCplMapping } from '#lib/features/curriculum/index.server.ts';
 import { recomputeOffering } from '#lib/features/outcomes/index.server.ts';
 import { getStudentProfile } from '#lib/features/students/index.server.ts';
-import { assessmentScoreRevisions, assessmentScores, cpmkResults } from '#lib/shared/db/schema.ts';
+import { assessmentScoreRevisions, assessmentScores, cplResults, cpmkResults } from '#lib/shared/db/schema.ts';
 import { NotFoundError } from '#lib/shared/http/errors.ts';
 import { useIsolatedDatabase } from '../../support/integration.ts';
-import { createBatch } from '../../support/imports.ts';
+import { attachBlueprint, createBatch, sampleBlueprint } from '../../support/imports.ts';
 import { createComponent, createCourse, createEnrollment, createOffering, createStudent, createTerm, createUser } from '../../support/factories.ts';
 
 const ctx = useIsolatedDatabase('students_profile');
@@ -54,7 +54,7 @@ async function twoSemesters() {
 }
 
 describe('getStudentProfile', () => {
-	test('merangkum riwayat lintas semester dengan nilai akhir, CPMK, CPL, dan tren semester', async () => {
+	test('merangkum riwayat lintas semester dengan nilai akhir, CPMK, dan CPL tanpa pelacak per semester', async () => {
 		const s = await twoSemesters();
 		const profile = await getStudentProfile(ctx.db, 'all', s.student.id);
 		expect(profile.student).toMatchObject({ id: s.student.id, nim: s.student.nim });
@@ -64,9 +64,11 @@ describe('getStudentProfile', () => {
 		expect(profile.enrollments[0].cpmk[0]).toMatchObject({ code: 'CPMK-1', value: 74, target: 70, achievement: 'tercapai', completeness: 'complete', formulaVersion: 'v1' });
 		expect(profile.enrollments[0].cpl[0]).toMatchObject({ code: 'CPL-1', value: 74, target: 75, achievement: 'belum_tercapai' });
 		expect(profile.enrollments[1].cpl[0]).toMatchObject({ value: 90, achievement: 'tercapai' });
-		expect(profile.semesters.map((x) => [x.mean, x.courses])).toEqual([[74, 1], [90, 1]]);
+		expect('semesters' in profile).toBe(false);
 		expect(profile.cplSummary).toHaveLength(1);
 		expect(profile.cplSummary[0].aggregate).toMatchObject({ status: 'complete', value: 82, entries: 2, used: 2, coverage: 1 });
+		expect(profile.cplSummary[0]).toMatchObject({ target: 75, targetSource: 'policy', achievement: 'tercapai', assumedMethod: false });
+		expect(profile.cplSummary[0].entries.map((e) => [e.value, e.basis])).toEqual([[74, 'calculated'], [90, 'calculated']]);
 		expect(profile.policy).toMatchObject({ threshold: 70, aggregation: 'simple_mean' });
 	});
 
@@ -74,7 +76,7 @@ describe('getStudentProfile', () => {
 		const s = await twoSemesters();
 		await ctx.db.insert(cpmkResults).values({ enrollmentId: s.enrollment1.id, cpmkId: s.cpmk1.id, source: 'imported_reference', value: 73, completeness: 'complete' });
 		const profile = await getStudentProfile(ctx.db, 'all', s.student.id);
-		expect(profile.enrollments[0].cpmk[0]).toMatchObject({ value: 74, reference: 73 });
+		expect(profile.enrollments[0].cpmk[0]).toMatchObject({ value: 74, reference: 73, basis: 'calculated' });
 		expect(profile.enrollments[1].cpmk[0].reference).toBeNull();
 	});
 
@@ -84,7 +86,6 @@ describe('getStudentProfile', () => {
 		expect(scoped.scopeLimited).toBe(true);
 		expect(scoped.enrollments.map((e) => e.courseName)).toEqual(['Biologi Sel Uji']);
 		expect(scoped.cplSummary[0].entries).toHaveLength(1);
-		expect(scoped.semesters).toHaveLength(1);
 
 		const other = await createStudent(ctx.db);
 		await createEnrollment(ctx.db, { offeringId: s.offering2.id, studentId: other.id });
@@ -114,6 +115,22 @@ describe('getStudentProfile', () => {
 		const profile = await getStudentProfile(ctx.db, 'all', studentId);
 		expect(profile.enrollments[0].final).toEqual({ value: null, status: 'incomplete', missing: ['UAS'] });
 		expect(profile.enrollments[0].components.find((c) => c.code === 'UAS')?.score).toBeNull();
-		expect(profile.semesters[0].mean).toBeNull();
+	});
+
+	test('tanpa hasil hitung, nilai CPL dari kolom Excel dipakai dengan ambang dari Excel dan ditandai sumbernya', async () => {
+		const term = await createTerm(ctx.db, { startYear: yearSeed });
+		yearSeed += 1;
+		const course = await createCourse(ctx.db, { name: 'Mata Kuliah Excel Uji', credits: 2 });
+		const offering = await createOffering(ctx.db, { courseId: course.id, semesterId: term.semester.id });
+		const student = await createStudent(ctx.db);
+		const enrollment = await createEnrollment(ctx.db, { offeringId: offering.id, studentId: student.id });
+		const cpl2 = await createCpl(ctx.db, admin, { code: 'CPL-2', title: 'CPL dari Excel' });
+		await ctx.db.insert(cplResults).values({ enrollmentId: enrollment.id, cplId: cpl2.id, source: 'imported_reference', value: 66, completeness: 'complete', formulaVersion: 'excel' });
+		const batch = await createBatch(ctx.db, admin.id);
+		await attachBlueprint(ctx.db, { batchId: batch.id, offeringId: offering.id, sheetName: 'Sheet Excel Uji', blueprint: sampleBlueprint() });
+		const profile = await getStudentProfile(ctx.db, 'all', student.id);
+		expect(profile.enrollments[0].cpl[0]).toMatchObject({ value: 66, basis: 'imported_reference', target: 62, achievement: 'tercapai', completeness: 'complete' });
+		expect(profile.cplSummary[0]).toMatchObject({ target: 62, targetSource: 'excel', achievement: 'tercapai' });
+		expect(profile.cplSummary[0].entries).toEqual([{ courseName: 'Mata Kuliah Excel Uji', credits: 2, value: 66, basis: 'imported_reference' }]);
 	});
 });

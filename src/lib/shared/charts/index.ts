@@ -1,5 +1,10 @@
 export { default as BarChart } from './BarChart.svelte';
+export { default as Dumbbell } from './Dumbbell.svelte';
 export { default as Heatmap } from './Heatmap.svelte';
 export { default as Histogram } from './Histogram.svelte';
+export { default as LinkMatrix } from './LinkMatrix.svelte';
 export { default as LineChart } from './LineChart.svelte';
+export { default as RadarChart } from './RadarChart.svelte';
+export { default as StackedShare } from './StackedShare.svelte';
+export { default as TraceFlow } from './TraceFlow.svelte';
 export { formatValue } from './chart-math.ts';

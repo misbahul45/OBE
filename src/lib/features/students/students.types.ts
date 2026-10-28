@@ -10,6 +10,7 @@ export type ProfileOutcome = {
 	target: number | null;
 	achievement: Achievement;
 	reference: number | null;
+	basis: 'calculated' | 'imported_reference' | null;
 	formulaVersion: string | null;
 	computedAt: Date | null;
 };
@@ -44,14 +45,16 @@ export type ProfileCplSummary = {
 	code: string;
 	title: string;
 	target: number | null;
+	targetSource: 'policy' | 'excel' | null;
 	aggregate: CplAggregate;
-	entries: { courseName: string; semesterName: string; credits: number; value: number | null }[];
+	assumedMethod: boolean;
+	achievement: Achievement;
+	entries: { courseName: string; credits: number; value: number | null; basis: 'calculated' | 'imported_reference' | null }[];
 };
 
 export type StudentProfile = {
 	student: { id: string; nim: string; name: string; cohortYear: number | null };
 	enrollments: ProfileEnrollment[];
-	semesters: { id: string; name: string; mean: number | null; courses: number }[];
 	cplSummary: ProfileCplSummary[];
 	revisions: ProfileRevision[];
 	policy: { name: string; threshold: number | null; aggregation: string } | null;

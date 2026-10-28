@@ -64,11 +64,13 @@ describe('rencana impor pada database kosong', () => {
 		expect(after).toEqual(before);
 	});
 
-	test('tanpa definisi CPMK referensi tidak diimpor dan dilaporkan', async () => {
+	test('tanpa definisi CPMK, referensi CPMK tetap direncanakan sebagai baru dan tidak dilaporkan sebagai tidak dikenal', async () => {
 		const offering = await createOffering(ctx.db);
 		const plan = await planSheet(ctx.db, inputFor(semesterA, offering.id));
-		expect(plan.validation.issues.map((i) => i.code)).toContain('CPMK_UNKNOWN');
-		expect(plan.rows[0].references.every((r) => r.kind === 'cpl' || false)).toBe(true);
+		expect(plan.validation.issues.map((i) => i.code)).not.toContain('CPMK_UNKNOWN');
+		const cpmk = plan.rows[0].references.filter((r) => r.kind === 'cpmk');
+		expect(cpmk.length).toBeGreaterThan(0);
+		expect(cpmk.every((r) => r.action === 'insert')).toBe(true);
 	});
 });
 

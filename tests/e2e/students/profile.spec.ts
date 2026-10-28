@@ -17,9 +17,10 @@ test('direktori mahasiswa dapat dicari dan membuka profil', async ({ asAdmin: pa
 	await expect(page.getByText(/NIM 99\d+/)).toBeVisible();
 });
 
-test('profil memuat tren semester, riwayat per mata kuliah dengan sumber hasil, dan riwayat perubahan', async ({ asAdmin: page }) => {
+test('profil memuat daftar CPL tercapai tanpa pelacak per semester, riwayat per mata kuliah dengan sumber hasil, dan riwayat perubahan', async ({ asAdmin: page }) => {
 	await page.goto(studentPath);
-	await expect(page.getByRole('heading', { name: 'Rata-rata nilai akhir per semester' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: 'CPL yang telah dicapai' })).toBeVisible();
+	await expect(page.getByRole('heading', { name: /per semester/i })).toHaveCount(0);
 
 	await page.getByRole('tab', { name: /Mata kuliah \(1\)/ }).click();
 	const enrollment = page.locator('[data-enrollment="E2EA"]');

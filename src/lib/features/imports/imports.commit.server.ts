@@ -10,6 +10,9 @@ import { studentNameConflicts, students } from '#lib/features/students/students.
 import { importBatches, importSheetMappings } from './imports.schema.ts';
 import { emptySummary, ImportBlockedError, type ErrorPolicy, type ImportStrategy, type PlanSummary, type SheetImportInput, type SheetPlan } from './imports.plan.types.ts';
 import { evaluateGate, planSheet } from './imports.plan.server.ts';
+import { sameStored } from './numbers.ts';
+import { blueprintCpmkCodes, extractObeBlueprint } from './obe-blueprint.ts';
+import { analyzeSheet } from './sheet-analysis.ts';
 
 export class ImportStateError extends Error {
 	constructor(message: string) {
@@ -138,7 +141,7 @@ async function applySheet(tx: DbExecutor, plan: SheetPlan, params: CommitParams)
 	const filled = intents.filter((i) => existingByKey.get(keyOf(i))?.score === null);
 	const differing = intents.filter((i) => {
 		const current = existingByKey.get(keyOf(i))?.score;
-		return current !== undefined && current !== null && Math.abs(current - i.value) >= 0.00005;
+		return current !== undefined && current !== null && !sameStored(current, i.value);
 	});
 	summary.scoresUnchanged = intents.length - fresh.length - filled.length - differing.length;
 
@@ -172,7 +175,7 @@ async function applySheet(tx: DbExecutor, plan: SheetPlan, params: CommitParams)
 			.from(assessmentScores)
 			.where(and(eq(assessmentScores.enrollmentId, i.enrollmentId), eq(assessmentScores.componentId, i.componentId)))
 			.for('update');
-		if (current && current.score !== null && Math.abs(current.score - i.value) < 0.00005) {
+		if (current && current.score !== null && sameStored(current.score, i.value)) {
 			summary.scoresUnchanged++;
 			continue;
 		}
@@ -191,6 +194,26 @@ async function applySheet(tx: DbExecutor, plan: SheetPlan, params: CommitParams)
 	}
 	if (revisions.length) await tx.insert(assessmentScoreRevisions).values(revisions);
 
+	const sheetInput = params.sheets.find((s) => s.sheetName === plan.sheet);
+	const blueprint = sheetInput ? extractObeBlueprint(sheetInput.grid, analyzeSheet(sheetInput.grid, { headerRow: sheetInput.mapping.headerRow }), sheetInput.mapping) : null;
+	const wantedCpmk = [...new Set([...(sheetInput?.mapping.cpmkColumns.map((c) => c.code) ?? []), ...(blueprint ? blueprintCpmkCodes(blueprint) : [])])];
+	if (wantedCpmk.length) {
+		const [offering] = await tx.select({ courseId: courseOfferings.courseId }).from(courseOfferings).where(eq(courseOfferings.id, offeringId)).limit(1);
+		const created = await tx
+			.insert(cpmkDefinitions)
+			.values(wantedCpmk.map((code) => ({ courseId: offering.courseId, code })))
+			.onConflictDoNothing({ target: [cpmkDefinitions.courseId, cpmkDefinitions.code] })
+			.returning({ code: cpmkDefinitions.code });
+		if (created.length)
+			await recordAudit(tx, {
+				...actorRef,
+				action: 'cpmk.auto_create',
+				entityType: 'course',
+				entityId: offering.courseId,
+				summary: `CPMK ${created.map((c) => c.code).join(', ')} dibuat otomatis dari kolom dan matriks Excel (sheet ${plan.sheet})`,
+				after: { codes: created.map((c) => c.code) }
+			});
+	}
 	const cpmkDefs = await tx.select({ id: cpmkDefinitions.id, code: cpmkDefinitions.code }).from(cpmkDefinitions).innerJoin(courseOfferings, eq(courseOfferings.courseId, cpmkDefinitions.courseId)).where(eq(courseOfferings.id, offeringId));
 	const cplDefs = await tx.select({ id: cplDefinitions.id, code: cplDefinitions.code }).from(cplDefinitions);
 	const cpmkIds = new Map(cpmkDefs.map((d) => [d.code, d.id]));
@@ -243,7 +266,11 @@ async function applySheet(tx: DbExecutor, plan: SheetPlan, params: CommitParams)
 	});
 	await tx
 		.update(importSheetMappings)
-		.set({ status: 'committed', rowCount: rows.length })
+		.set({
+			status: 'committed',
+			rowCount: rows.length,
+			...(blueprint ? { mapping: sql`${importSheetMappings.mapping} || ${JSON.stringify({ blueprint })}::jsonb` } : {})
+		})
 		.where(and(eq(importSheetMappings.batchId, params.batchId), eq(importSheetMappings.sheetName, plan.sheet)));
 
 	return { sheet: plan.sheet, offeringId, summary, enrollmentIds: enrollmentRows.map((e) => e.id), skippedUpdates };

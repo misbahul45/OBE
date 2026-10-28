@@ -19,11 +19,12 @@ import {
 	type SheetImportInput,
 	type SheetPlan
 } from './imports.plan.types.ts';
+import { sameStored } from './numbers.ts';
 import { validateSheet } from './validation.ts';
 
 export type PlanOptions = { lock?: boolean; weightTolerancePercent?: number };
 
-const sameNumber = (a: number | null, b: number | null) => a !== null && b !== null && Math.abs(a - b) < 0.00005;
+const sameNumber = (a: number | null, b: number | null) => a !== null && b !== null && sameStored(a, b);
 const normalizeName = (value: string) => value.toLowerCase().replace(/\s+/g, ' ').trim();
 
 function classify(existing: number | null | undefined, incoming: number): ChangeAction {
@@ -46,7 +47,7 @@ export async function planSheet(executor: DbExecutor, input: SheetImportInput, o
 	if (courseId) {
 		const cpmk = await executor.select({ id: cpmkDefinitions.id, code: cpmkDefinitions.code }).from(cpmkDefinitions).where(and(eq(cpmkDefinitions.courseId, courseId), eq(cpmkDefinitions.isActive, true)));
 		cpmkIdByCode = new Map(cpmk.map((c) => [c.code, c.id]));
-		knownCpmk = new Set(cpmkIdByCode.keys());
+		knownCpmk = new Set([...cpmkIdByCode.keys(), ...input.mapping.cpmkColumns.map((c) => c.code)]);
 	}
 	const cpl = await executor.select({ id: cplDefinitions.id, code: cplDefinitions.code }).from(cplDefinitions).where(eq(cplDefinitions.isActive, true));
 	cplIdByCode = new Map(cpl.map((c) => [c.code, c.id]));
@@ -139,8 +140,7 @@ export async function planSheet(executor: DbExecutor, input: SheetImportInput, o
 		for (const [code, value] of Object.entries(parsed.references.cpmk)) {
 			if (value === null) continue;
 			const id = cpmkIdByCode.get(code);
-			if (!id) continue;
-			const old = enrollment ? (cpmkValue.get(`${enrollment.id}:${id}`) ?? null) : null;
+			const old = enrollment && id ? (cpmkValue.get(`${enrollment.id}:${id}`) ?? null) : null;
 			references.push({ kind: 'cpmk', code, action: classify(old, value), newValue: value });
 		}
 		for (const [code, value] of Object.entries(parsed.references.cpl)) {

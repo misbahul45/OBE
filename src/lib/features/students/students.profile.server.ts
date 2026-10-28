@@ -5,13 +5,12 @@ import { assessmentComponents, assessmentScoreRevisions, assessmentScores } from
 import { cplDefinitions, cpmkDefinitions } from '#lib/features/curriculum/curriculum.schema.ts';
 import { enrollments } from '#lib/features/enrollments/enrollments.schema.ts';
 import { importBatches } from '#lib/features/imports/imports.schema.ts';
-import { aggregateCpl, classifyAchievement, computeFinalScore, loadActivePolicy, type CalcComponent } from '#lib/features/outcomes/index.server.ts';
+import { aggregateCpl, classifyAchievement, computeFinalScore, loadActivePolicy, loadBlueprints, type CalcComponent } from '#lib/features/outcomes/index.server.ts';
 import { cplResults, cpmkResults } from '#lib/features/outcomes/outcomes.schema.ts';
 import { assertCanViewStudent, type StudentScope } from './students.queries.server.ts';
 import { students } from './students.schema.ts';
 import type { ProfileCplSummary, ProfileEnrollment, ProfileOutcome, ProfileRevision, StudentProfile } from './students.types.ts';
 
-const round2 = (value: number) => Math.round(value * 100) / 100;
 const revisionCap = 60;
 
 export async function getStudentProfile(db: DbExecutor, scope: StudentScope, studentId: string): Promise<StudentProfile> {
@@ -40,6 +39,8 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 
 	const enrollmentIds = enrollmentRows.map((e) => e.enrollmentId);
 	const offeringIds = [...new Set(enrollmentRows.map((e) => e.offeringId))];
+	const blueprints = await loadBlueprints(db, offeringIds);
+	const excelScoreOf = (offeringId: string) => blueprints.get(offeringId)?.blueprint.thresholds.studentScore ?? null;
 	const componentRows = offeringIds.length ? await db.select().from(assessmentComponents).where(and(inArray(assessmentComponents.offeringId, offeringIds), eq(assessmentComponents.isActive, true))).orderBy(asc(assessmentComponents.sortOrder), asc(assessmentComponents.code)) : [];
 	const scoreRows = enrollmentIds.length ? await db.select().from(assessmentScores).where(inArray(assessmentScores.enrollmentId, enrollmentIds)) : [];
 	const cpmkRows = enrollmentIds.length ? await db.select({ r: cpmkResults, code: cpmkDefinitions.code, description: cpmkDefinitions.description }).from(cpmkResults).innerJoin(cpmkDefinitions, eq(cpmkDefinitions.id, cpmkResults.cpmkId)).where(inArray(cpmkResults.enrollmentId, enrollmentIds)) : [];
@@ -47,8 +48,11 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 
 	const outcomeOf = (rows: { calculated?: { value: number | null; completeness: string; formulaVersion: string | null; computedAt: Date }; reference?: number | null }, meta: { code: string; title: string }, target: number | null): ProfileOutcome => {
 		const calc = rows.calculated;
-		const value = calc && calc.completeness === 'complete' ? calc.value : null;
-		return { code: meta.code, title: meta.title, value, completeness: calc?.completeness === 'complete' ? 'complete' : 'incomplete', target, achievement: classifyAchievement(value, target), reference: rows.reference ?? null, formulaVersion: calc?.formulaVersion ?? null, computedAt: calc?.computedAt ?? null };
+		const calculatedValue = calc && calc.completeness === 'complete' ? calc.value : null;
+		const reference = rows.reference ?? null;
+		const value = calculatedValue ?? reference;
+		const basis = calculatedValue !== null ? ('calculated' as const) : reference !== null ? ('imported_reference' as const) : null;
+		return { code: meta.code, title: meta.title, value, completeness: value !== null ? 'complete' : 'incomplete', target, achievement: classifyAchievement(value, target), reference, basis, formulaVersion: calc?.formulaVersion ?? null, computedAt: calc?.computedAt ?? null };
 	};
 
 	const views: ProfileEnrollment[] = enrollmentRows.map((row) => {
@@ -65,7 +69,7 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 					const first = entries[0];
 					const calculated = entries.find((x) => x.r.source === 'calculated')?.r;
 					const reference = entries.find((x) => x.r.source === 'imported_reference')?.r.value ?? null;
-					return outcomeOf({ calculated, reference }, { code: first.code, title: first.description ?? first.code }, policy?.threshold ?? null);
+					return outcomeOf({ calculated, reference }, { code: first.code, title: first.description ?? first.code }, policy?.threshold ?? excelScoreOf(row.offeringId));
 				})
 				.sort((a, b) => a.code.localeCompare(b.code));
 		};
@@ -77,7 +81,7 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 					const first = entries[0];
 					const calculated = entries.find((x) => x.r.source === 'calculated')?.r;
 					const reference = entries.find((x) => x.r.source === 'imported_reference')?.r.value ?? null;
-					return { ...outcomeOf({ calculated, reference }, { code: first.code, title: first.title }, policy?.targets[cplId] ?? null), sortOrder: first.sortOrder };
+					return { ...outcomeOf({ calculated, reference }, { code: first.code, title: first.title }, policy?.targets[cplId] ?? excelScoreOf(row.offeringId)), sortOrder: first.sortOrder };
 				})
 				.sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code))
 				.map(({ sortOrder, ...rest }) => {
@@ -102,17 +106,25 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 		};
 	});
 
-	const semesterOrder = [...new Map(enrollmentRows.map((e) => [e.semesterId, e.semesterName])).entries()];
-	const semesterSummary = semesterOrder.map(([id, name]) => {
-		const inSemester = views.filter((v) => v.semesterId === id);
-		const finals = inSemester.map((v) => v.final.value).filter((v): v is number => v !== null);
-		return { id, name, mean: finals.length ? round2(finals.reduce((s, v) => s + v, 0) / finals.length) : null, courses: inSemester.length };
-	});
-
 	const cplCodes = [...new Map(views.flatMap((v) => v.cpl).map((c) => [c.code, c])).values()];
+	const aggregation = policy && policy.aggregation !== 'not_configured' ? policy.aggregation : ('simple_mean' as const);
+	const excelScores = [...new Set(views.map((v) => excelScoreOf(v.offeringId)).filter((v): v is number => v !== null))];
+	const commonExcelScore = excelScores.length === 1 ? excelScores[0] : null;
 	const cplSummary: ProfileCplSummary[] = cplCodes.map((meta) => {
-		const entries = views.flatMap((v) => v.cpl.filter((c) => c.code === meta.code).map((c) => ({ courseName: v.courseName, semesterName: v.semesterName, credits: v.credits, value: c.value })));
-		return { code: meta.code, title: meta.title, target: meta.target, aggregate: aggregateCpl(entries.map((e) => ({ value: e.value, credits: e.credits })), policy?.aggregation ?? 'not_configured'), entries };
+		const entries = views.flatMap((v) => v.cpl.filter((c) => c.code === meta.code).map((c) => ({ courseName: v.courseName, credits: v.credits, value: c.value, basis: c.basis })));
+		const policyTarget = [...Object.entries(policy?.targets ?? {})].find(([id]) => cplRows.some((r) => r.r.cplId === id && r.code === meta.code))?.[1] ?? null;
+		const target = policyTarget ?? commonExcelScore;
+		const aggregate = aggregateCpl(entries.map((e) => ({ value: e.value, credits: e.credits })), aggregation);
+		return {
+			code: meta.code,
+			title: meta.title,
+			target,
+			targetSource: policyTarget !== null ? 'policy' : commonExcelScore !== null ? 'excel' : null,
+			aggregate,
+			assumedMethod: !policy || policy.aggregation === 'not_configured',
+			achievement: classifyAchievement(aggregate.value, target),
+			entries
+		};
 	});
 
 	const revisionRows = enrollmentIds.length
@@ -132,7 +144,6 @@ export async function getStudentProfile(db: DbExecutor, scope: StudentScope, stu
 	return {
 		student,
 		enrollments: views,
-		semesters: semesterSummary,
 		cplSummary,
 		revisions,
 		policy: policy ? { name: policy.name, threshold: policy.threshold, aggregation: policy.aggregation } : null,

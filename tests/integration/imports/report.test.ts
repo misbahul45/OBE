@@ -105,7 +105,7 @@ describe('commit batch', () => {
 		const result = await commitBatch(ctx.db, scene.admin, batchId, options);
 		if (!result.ok) throw new Error(JSON.stringify(result.blockers));
 		expect(result.recompute).toBe('done');
-		expect(result.summary).toMatchObject({ studentsNew: 29, scoresNew: 218, referencesNew: 99 });
+		expect(result.summary).toMatchObject({ studentsNew: 29, scoresNew: 218, referencesNew: 174 });
 		expect(result.studentIds).toHaveLength(29);
 
 		const [batch] = await ctx.db.select().from(importBatches).where(eq(importBatches.id, batchId));
@@ -116,7 +116,7 @@ describe('commit batch', () => {
 		expect((await ctx.db.select().from(outcomeCalculationRuns).where(eq(outcomeCalculationRuns.offeringId, scene.offeringA.id))).length).toBe(0);
 
 		const refs = await ctx.db.select().from(cpmkResults).where(and(eq(cpmkResults.batchId, batchId), eq(cpmkResults.source, 'imported_reference')));
-		expect(refs).toHaveLength(70);
+		expect(refs).toHaveLength(145);
 
 		const detail = await getBatchDetail(ctx.db, scene.admin, batchId);
 		expect(detail.sheets.map((s) => [s.sheetName, s.courseName, s.status])).toEqual([

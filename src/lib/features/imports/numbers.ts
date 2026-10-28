@@ -44,3 +44,7 @@ export function isDateFormat(format: string | null | undefined): boolean {
 		.replace(/general/gi, '');
 	return /[ymdhs]/i.test(stripped);
 }
+
+export const storageTolerance = 0.00005 + 1e-9;
+
+export const sameStored = (a: number, b: number) => Math.abs(a - b) <= storageTolerance;

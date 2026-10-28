@@ -1,4 +1,12 @@
-import type { AggregationMethod, CplAggregate, Distribution } from './outcomes.calc.ts';
+import type { AggregationMethod, CplAggregate, Distribution, OutcomeBasis } from './outcomes.calc.ts';
+
+export type ThresholdSource = 'policy' | 'excel';
+
+export type TraceNode = { id: string; column: 0 | 1 | 2; code: string; label: string; value: number | null; ratio: number | null; reached: boolean | null };
+
+export type TraceLink = { from: string; to: string; weight: number; display: number };
+
+export type OfferingTrace = { nodes: TraceNode[]; links: TraceLink[]; source: { fileName: string; sheetName: string } };
 
 export type PolicyView = { id: string; name: string; threshold: number | null; classRatio: number | null; aggregation: AggregationMethod; targets: Record<string, number> };
 
@@ -27,6 +35,9 @@ export type OutcomeStat = {
 	target: number | null;
 	distribution: Distribution;
 	meetsClassRatio: boolean | null;
+	basis: OutcomeBasis | null;
+	targetSource: ThresholdSource | null;
+	classRatio: number | null;
 	reference: { count: number; mean: number | null; differing: number } | null;
 };
 
@@ -41,13 +52,15 @@ export type OfferingAnalytics = {
 	finalScore: { complete: number; incomplete: number; notConfigured: boolean; reason: string | null; mean: number | null; bins: ScoreBin[] };
 	cpmk: OutcomeStat[];
 	cpl: OutcomeStat[];
+	thresholds: { studentScore: number | null; classRatio: number | null; source: ThresholdSource | null };
+	trace: OfferingTrace | null;
 	warnings: string[];
 	lastRunAt: Date | null;
 };
 
-export type ProgramOffering = { offeringId: string; courseCode: string; courseName: string; section: string; credits: number; students: number; complete: number; mean: number | null; ratioAchieved: number | null };
+export type ProgramOffering = { offeringId: string; courseCode: string; courseName: string; section: string; credits: number; students: number; complete: number; mean: number | null; ratioAchieved: number | null; distribution: Distribution; basis: OutcomeBasis };
 
-export type ProgramCpl = { id: string; code: string; title: string; target: number | null; offerings: ProgramOffering[]; aggregate: CplAggregate };
+export type ProgramCpl = { id: string; code: string; title: string; target: number | null; targetSource: ThresholdSource | null; offerings: ProgramOffering[]; aggregate: CplAggregate; distribution: Distribution };
 
 export type AttentionItem = { offeringId: string; label: string; reason: string };
 
@@ -68,4 +81,5 @@ export type RosterRow = {
 	status: 'complete' | 'incomplete' | 'not_configured';
 	missing: string[];
 	cpmk: Record<string, number | null>;
+	cpmkBasis: Record<string, OutcomeBasis>;
 };

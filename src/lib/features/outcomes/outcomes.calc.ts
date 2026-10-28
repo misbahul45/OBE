@@ -160,3 +160,27 @@ export function compareWithReference(calculated: number | null, reference: numbe
 	const delta = round4(calculated - reference);
 	return { differs: Math.abs(delta) > tolerance, delta };
 }
+
+export type OutcomeBasis = 'calculated' | 'imported_reference';
+
+export type BasisRow = { enrollmentId: string; value: number | null; completeness: string };
+
+export function chooseBasis<T extends BasisRow>(calculated: T[], reference: T[]): { basis: OutcomeBasis | null; rows: T[] } {
+	if (calculated.some((r) => r.completeness === 'complete' && r.value !== null)) return { basis: 'calculated', rows: calculated };
+	if (reference.some((r) => r.value !== null)) return { basis: 'imported_reference', rows: reference };
+	return { basis: null, rows: calculated };
+}
+
+export function sumDistributions(parts: Distribution[]): Distribution {
+	const total: Distribution = { achieved: 0, notAchieved: 0, insufficient: 0, unconfigured: 0, total: 0, ratioAchieved: null };
+	for (const part of parts) {
+		total.achieved += part.achieved;
+		total.notAchieved += part.notAchieved;
+		total.insufficient += part.insufficient;
+		total.unconfigured += part.unconfigured;
+		total.total += part.total;
+	}
+	const assessed = total.achieved + total.notAchieved;
+	total.ratioAchieved = assessed > 0 ? round4((total.achieved / assessed) * 100) : null;
+	return total;
+}

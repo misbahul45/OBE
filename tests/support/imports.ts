@@ -1,7 +1,8 @@
 import { count } from 'drizzle-orm';
 import type { PgTable } from 'drizzle-orm/pg-core';
 import type { Database } from '#lib/shared/db/client.server.ts';
-import { cplDefinitions, cpmkDefinitions, importBatches } from '#lib/shared/db/schema.ts';
+import { cplDefinitions, cpmkDefinitions, importBatches, importSheetMappings } from '#lib/shared/db/schema.ts';
+import type { ObeBlueprint } from '#lib/features/imports/obe-blueprint.types.ts';
 import type { SheetImportInput } from '#lib/features/imports/imports.plan.types.ts';
 import type { SheetGrid } from '#lib/features/imports/imports.types.ts';
 import { analyzeSheet, suggestMapping } from '#lib/features/imports/sheet-analysis.ts';
@@ -38,4 +39,30 @@ export async function defineOutcomes(db: Database, courseId: string, cpmkCodes: 
 export async function rowCount(db: Database, table: PgTable): Promise<number> {
 	const [row] = await db.select({ n: count() }).from(table);
 	return Number(row.n);
+}
+
+export function sampleBlueprint(overrides: Partial<ObeBlueprint> = {}): ObeBlueprint {
+	return {
+		version: 1,
+		cpmk: [
+			{ code: 'CPMK-1', components: [{ componentCode: 'UTS-1', coefficient: 1 }] },
+			{ code: 'CPMK-2', components: [{ componentCode: 'UAS-1', coefficient: 1 }] }
+		],
+		cpl: [{ code: 'CPL-1', links: [{ cpmk: 'CPMK-1', weight: 0.4 }, { cpmk: 'CPMK-2', weight: 0.6 }] }],
+		thresholds: { studentScore: 62, classRatioPercent: 75 },
+		claims: [{ cpmk: 'CPMK-1', achieved: 2, percent: 66.67, reached: false }, { cpmk: 'CPMK-2', achieved: 3, percent: 100, reached: true }],
+		totalStudents: 3,
+		...overrides
+	};
+}
+
+export async function attachBlueprint(db: Database, input: { batchId: string; offeringId: string; sheetName: string; blueprint: ObeBlueprint }) {
+	await db.insert(importSheetMappings).values({
+		batchId: input.batchId,
+		sheetName: input.sheetName,
+		offeringId: input.offeringId,
+		fingerprint: `fp-${input.sheetName}`,
+		mapping: { mapping: null, source: 'auto', blueprint: input.blueprint },
+		status: 'committed'
+	});
 }

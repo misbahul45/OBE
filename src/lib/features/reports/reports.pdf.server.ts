@@ -20,8 +20,6 @@ const num = (value: number | null | undefined, digits = 1) =>
 
 const dateTime = (date: Date) => new Intl.DateTimeFormat('id-ID', { dateStyle: 'long', timeStyle: 'short', timeZone: 'Asia/Jakarta' }).format(date);
 
-const achievement = { tercapai: 'Tercapai', belum_tercapai: 'Belum tercapai', belum_cukup_data: 'Data belum cukup', target_belum_dikonfigurasi: 'Target belum diatur' } as const;
-
 function open(options: PdfOptions): { doc: Doc; done: Promise<Uint8Array> } {
 	const doc = new PDFDocument({ size: 'A4', margin, bufferPages: true, compress: options.compress ?? true, info: { Title: 'Laporan OBE Teknik Biomedis', Producer: 'OBE Teknik Biomedis' } });
 	const chunks: Buffer[] = [];
@@ -53,7 +51,7 @@ function header(doc: Doc, title: string, subtitle: string, generatedAt: Date) {
 	const width = doc.page.width - margin * 2;
 	doc.font('Helvetica-Bold').fontSize(15).fillColor(ink).text(title, margin, doc.y, { width, align: 'center' });
 	doc.moveDown(0.25).font('Helvetica').fontSize(9.5).fillColor(muted).text(subtitle, margin, doc.y, { width, align: 'center' });
-	doc.moveDown(0.25).fontSize(8).text(`Dihasilkan ${dateTime(generatedAt)} dari data tersimpan. Hasil CPMK/CPL dihitung sistem dengan rumus v1; nilai referensi Excel ditampilkan terpisah.`, margin, doc.y, { width, align: 'center' });
+	doc.moveDown(0.25).fontSize(8).text(`Dihasilkan ${dateTime(generatedAt)} dari data tersimpan. Nilai CPMK dan CPL berasal dari hasil hitung sistem atau, bila belum ada, dari kolom Excel yang diimpor.`, margin, doc.y, { width, align: 'center' });
 	doc.moveDown(0.8);
 }
 
@@ -142,13 +140,12 @@ function footer(doc: Doc, label: string) {
 	}
 }
 
-const finalLabel = (final: StudentProfile['enrollments'][number]['final']) =>
-	final.status === 'complete' ? num(final.value) : final.status === 'incomplete' ? `Belum lengkap (kurang: ${final.missing.join(', ')})` : 'Belum dikonfigurasi';
+const targetSourceLabel = { policy: 'kebijakan OBE', excel: 'ambang pada berkas Excel' } as const;
 
 export async function renderStudentTranscript(profile: StudentProfile, options: PdfOptions = {}): Promise<Uint8Array> {
 	const { doc, done } = open(options);
 	const generatedAt = options.generatedAt ?? new Date();
-	header(doc, 'Transkrip Capaian Pembelajaran', `${profile.student.name} | NIM ${profile.student.nim}`, generatedAt);
+	header(doc, 'Capaian Pembelajaran Lulusan', `${profile.student.name} | NIM ${profile.student.nim}`, generatedAt);
 	if (profile.scopeLimited) note(doc, 'Dokumen ini hanya memuat mata kuliah dalam cakupan pengguna yang mengunduhnya.');
 
 	heading(doc, 'Identitas Mahasiswa');
@@ -161,56 +158,26 @@ export async function renderStudentTranscript(profile: StudentProfile, options: 
 		['Tanggal Cetak', dateTime(generatedAt)]
 	]);
 
-	if (profile.semesters.length) {
-		heading(doc, 'Ringkasan per Semester');
-		table(
-			doc,
-			[{ title: 'No', width: 1, align: 'center' }, { title: 'Semester', width: 5 }, { title: 'Mata Kuliah', width: 2, align: 'right' }, { title: 'SKS', width: 2, align: 'right' }, { title: 'Rata-rata Nilai Akhir', width: 3, align: 'right' }],
-			profile.semesters.map((s, i) => [String(i + 1), s.name, String(s.courses), String(profile.enrollments.filter((e) => e.semesterId === s.id).reduce((sum, e) => sum + e.credits, 0)), num(s.mean)])
-		);
-	}
-	if (profile.cplSummary.length) {
-		heading(doc, 'Capaian CPL Lintas Mata Kuliah');
-		const method = profile.policy?.aggregation ?? 'not_configured';
-		note(doc, method === 'not_configured' ? 'Metode agregasi belum diatur pada kebijakan aktif; angka gabungan tidak dihitung.' : `Agregasi: ${method === 'simple_mean' ? 'rata-rata sederhana' : 'rata-rata tertimbang SKS'}.`);
-		table(
-			doc,
-			[{ title: 'CPL', width: 2 }, { title: 'Judul', width: 5 }, { title: 'Target', width: 2, align: 'right' }, { title: 'Nilai Gabungan', width: 3, align: 'right' }, { title: 'Mata Kuliah Terpakai', width: 3, align: 'right' }],
-			profile.cplSummary.map((c) => [c.code, c.title, num(c.target), num(c.aggregate.value), `${c.aggregate.used} dari ${c.aggregate.entries}`])
-		);
-	}
-
-	profile.enrollments.forEach((enrollment, index) => {
-		heading(doc, `${index + 1}. ${enrollment.courseName} (${enrollment.courseCode})`);
-		table(
-			doc,
-			[{ title: 'Semester', width: 4 }, { title: 'Kelas', width: 1, align: 'center' }, { title: 'SKS', width: 1, align: 'right' }, { title: 'Nilai Akhir', width: 4, align: 'right' }],
-			[[enrollment.semesterName, enrollment.section, String(enrollment.credits), `${finalLabel(enrollment.final)}`]]
-		);
-		table(
-			doc,
-			[{ title: 'Komponen Penilaian', width: 5 }, { title: 'Bobot', width: 2, align: 'right' }, { title: 'Nilai', width: 2, align: 'right' }, { title: 'Nilai Maks', width: 2, align: 'right' }],
-			enrollment.components.map((c) => [`${c.name} (${c.code})`, c.weightPercent === null ? '-' : `${num(c.weightPercent, 2)}%`, c.score === null ? 'kosong' : num(c.score, 2), num(c.maxScore, 2)])
-		);
-		for (const group of [{ label: 'CPMK', rows: enrollment.cpmk }, { label: 'CPL', rows: enrollment.cpl }]) {
-			if (!group.rows.length) continue;
+	const achieved = profile.cplSummary.filter((c) => c.achievement === 'tercapai');
+	const assessed = profile.cplSummary.filter((c) => c.achievement === 'tercapai' || c.achievement === 'belum_tercapai').length;
+	heading(doc, 'CPL yang Telah Dicapai');
+	if (profile.cplSummary.length === 0) {
+		note(doc, 'Belum ada nilai CPL pada cakupan ini.');
+	} else {
+		const sources = [...new Set(profile.cplSummary.map((c) => c.targetSource).filter((x): x is 'policy' | 'excel' => x !== null))];
+		const method = profile.cplSummary.some((c) => c.assumedMethod) ? 'rata-rata sederhana antar mata kuliah' : profile.policy?.aggregation === 'credit_weighted_mean' ? 'rata-rata tertimbang SKS' : 'rata-rata sederhana antar mata kuliah';
+		note(doc, `${achieved.length} dari ${profile.cplSummary.length} CPL tercapai${assessed < profile.cplSummary.length ? ` (${profile.cplSummary.length - assessed} belum dapat dinilai)` : ''}. Nilai gabungan: ${method}. Ambang: ${sources.length ? sources.map((x) => targetSourceLabel[x]).join(' dan ') : 'belum ditetapkan'}.`);
+		if (achieved.length === 0) {
+			doc.font('Helvetica').fontSize(10).fillColor(muted).text('Belum ada CPL yang mencapai ambang.', margin, doc.y);
+		} else {
 			table(
 				doc,
-				[{ title: `Capaian ${group.label}`, width: 3 }, { title: 'Hasil Hitung', width: 2, align: 'right' }, { title: 'Target', width: 2, align: 'right' }, { title: 'Status', width: 4 }],
-				group.rows.map((r) => [r.code, r.value === null ? 'belum lengkap' : num(r.value), num(r.target), achievement[r.achievement]])
+				[{ title: 'No', width: 1, align: 'center' }, { title: 'CPL', width: 2 }, { title: 'Capaian Pembelajaran Lulusan', width: 7 }, { title: 'Nilai', width: 2, align: 'right' }, { title: 'Ambang', width: 2, align: 'right' }, { title: 'Mata Kuliah Pendukung', width: 3, align: 'right' }],
+				achieved.map((c, i) => [String(i + 1), c.code, c.title, num(c.aggregate.value), num(c.target), String(c.aggregate.used)])
 			);
 		}
-		const references = [...enrollment.cpmk, ...enrollment.cpl].filter((r) => r.reference !== null);
-		if (references.length) {
-			table(
-				doc,
-				[{ title: 'Nilai Referensi Excel (bukan hasil hitung sistem)', width: 6 }, { title: 'Nilai', width: 2, align: 'right' }],
-				references.map((r) => [r.code, num(r.reference)])
-			);
-		}
-	});
-	if (profile.enrollments.length === 0) doc.font('Helvetica').fontSize(10).fillColor(muted).text('Belum ada riwayat mata kuliah pada cakupan ini.', margin, doc.y);
-	footer(doc, 'Transkrip capaian pembelajaran');
+	}
+	footer(doc, 'Capaian pembelajaran lulusan');
 	doc.end();
 	return done;
 }
