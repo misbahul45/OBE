@@ -31,7 +31,7 @@ describe('instalasi bersih dari migrasi', () => {
 	test('setiap tabel di schema hadir di database dan tidak ada tabel liar', async () => {
 		const actual = await names(sql`select table_name as name from information_schema.tables where table_schema = 'public'`);
 		expect(actual.sort()).toEqual(declared.map((table) => table.name).sort());
-		expect(declared.length).toBe(41);
+		expect(declared.length).toBe(42);
 	});
 
 	test('seluruh index dan unique constraint yang dideklarasikan hadir', async () => {
@@ -60,7 +60,7 @@ describe('instalasi bersih dari migrasi', () => {
 	test('migrasi dapat dijalankan ulang tanpa perubahan', async () => {
 		expect(await migrateDatabase(probeUrl)).toBe(true);
 		const actual = await names(sql`select table_name as name from information_schema.tables where table_schema = 'public'`);
-		expect(actual.length).toBe(41);
+		expect(actual.length).toBe(42);
 	});
 });
 

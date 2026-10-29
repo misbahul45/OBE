@@ -16,6 +16,8 @@
 | `design-system-audit.md` | audit token, palet, kontras, scrollbar | ada |
 | `curriculum-data.md` | asal data CPL, profil, mata kuliah, dosen; cara seed; selisih antar sumber | ada |
 | `tracking/decisions.md` (D-34 sampai D-36) | tema pengguna, redesain landing, dan transkrip PDF | ada |
+| `charts-research.md` | dasar riset pemilihan grafik capaian, sumber, dan hal yang tidak ditemukan | ada |
+| `tracer-linearitas.md` | rumus, sumber UNAIR, data, dan migrasi untuk tracer alumni dan linearitas | ada |
 | `testing.md` | manajemen tes dan isolasi data | ada |
 | `testing-e2e.md` | Playwright, seed E2E, aksesibilitas, audit visual dengan MCP | ada |
 | `verification-report.md` | hasil verifikasi akhir yang benar-benar dijalankan | dibuat pada T-084 |

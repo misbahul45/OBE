@@ -2,7 +2,7 @@
 
 > Jangan edit manual. Sumber kebenaran: `docs/tracking/ledger.json`. Loop: Plan → Build → Verify → Record → Next (lihat `docs/process/closed-loop.md`).
 
-**Task selesai:** 71/75 (95%) · **Acceptance criteria terpenuhi:** 65/69
+**Task selesai:** 78/82 (95%) · **Acceptance criteria terpenuhi:** 72/76
 
 ## Per fase
 
@@ -10,11 +10,11 @@
 |---|---|---|---|---|
 | P0 Fondasi, aturan, dan tracking | 7/7 | 0 | 0 | 0 |
 | P1 Data dan autentikasi | 7/7 | 0 | 0 | 0 |
-| P2 Design system dan shell | 6/9 | 1 | 0 | 2 |
+| P2 Design system dan shell | 7/10 | 1 | 0 | 2 |
 | P3 Data induk dan RBAC | 11/11 | 0 | 0 | 0 |
 | P4 Mesin impor Excel | 9/9 | 0 | 0 | 0 |
 | P5 Wizard impor | 7/7 | 0 | 0 | 0 |
-| P6 OBE, mahasiswa, dan laporan | 9/10 | 0 | 0 | 1 |
+| P6 OBE, mahasiswa, dan laporan | 15/16 | 0 | 0 | 1 |
 | P7 CQI dan dashboard | 5/5 | 0 | 0 | 0 |
 | P8 Verifikasi akhir dan dokumentasi | 10/10 | 0 | 0 | 0 |
 
@@ -65,6 +65,7 @@ _Tidak ada._
 | 🔄 | T-098 | Toggle tema (terang, gelap, ikuti sistem) tanpa kedip dan halaman profil akun dengan ubah nama | AC-66 | — |
 | ⬜ | T-099 | Redesain landing: titik Three.js dan GSAP ScrollTrigger, logo resmi UNAIR, isi alur, peran, modul, PDCA, dan favicon resmi | AC-67 | — |
 | ⬜ | T-101 | Diagram siklus OBE interaktif: hub, busur berarah, umpan balik CQI, simpul tombol, panel penjelasan, dan responsif | AC-69 | — |
+| ✅ | T-108 | Perbaikan state tombol tampilkan password: fokus dan kursor dipertahankan, nama aksesibel tetap, tersembunyi kembali setelah kirim | AC-76 | PASS · 2026-10-29 02:42 UTC |
 
 ### P3 — Data induk dan RBAC
 
@@ -122,6 +123,12 @@ _Tidak ada._
 | ✅ | T-067 | Ekspor CSV tahan formula injection | AC-25, AC-49 | PASS · 2026-10-23 10:27 UTC |
 | ✅ | T-068 | Halaman profil mahasiswa lintas semester dan rute PDF terproteksi | AC-11, AC-12, AC-27 | PASS · 2026-10-23 15:11 UTC |
 | ⬜ | T-100 | Transkrip PDF mengikuti struktur acuan dengan kop resmi UNAIR dan referensi Excel terpisah | AC-68 | — |
+| ✅ | T-102 | Cetak biru OBE dari blok kanan Excel: ekstraktor, CPMK otomatis, penyimpanan bersama jejak batch, toleransi presisi penyimpanan | AC-70 | PASS · 2026-10-28 17:45 UTC |
+| ✅ | T-103 | Analitik kelas, program, dan mahasiswa berbasis nilai Excel dengan ambang dari Excel dan jejak komponen ke CPL | AC-71 | PASS · 2026-10-28 17:45 UTC |
+| ✅ | T-104 | Pustaka grafik baru dari riset kebutuhan OBE dan integrasinya pada halaman kelas, program, dan mahasiswa | AC-72 | PASS · 2026-10-28 17:47 UTC |
+| ✅ | T-105 | Sisi mahasiswa: daftar CPL tercapai, tanpa pelacak per semester, PDF hanya memuat CPL tercapai | AC-73 | PASS · 2026-10-28 17:45 UTC |
+| ✅ | T-106 | Optimasi pencarian dan paginasi direktori mahasiswa | AC-74 | PASS · 2026-10-28 17:46 UTC |
+| ✅ | T-107 | Tracer alumni dan linearitas: prediksi dari nilai CPL, isian nyata manual, statistik linear dan tidak linear | AC-75 | PASS · 2026-10-28 18:28 UTC |
 
 ### P7 — CQI dan dashboard
 
@@ -221,3 +228,10 @@ _Tidak ada._
 | AC-67 | Permintaan pengguna | Landing page menjelaskan alur OBE, peran, modul, dan siklus PDCA dengan animasi titik Three.js dan GSAP ScrollTrigger yang menghormati prefers-reduced-motion, membersihkan sumber daya WebGL, memakai logo resmi UNAIR tanpa mengubah proporsi, dan favicon dari logo resmi | ⬜ terbuka | T-099 |
 | AC-68 | Permintaan pengguna | Transkrip Capaian Pembelajaran PDF mengikuti struktur acuan (kop resmi UNAIR, identitas, ringkasan semester, CPL lintas mata kuliah, identitas dan nilai akhir per mata kuliah, tabel komponen, tabel capaian, nilai referensi Excel terpisah, nomor halaman) dengan tabel konvensional yang tidak terpotong | ⬜ terbuka | T-100 |
 | AC-69 | Permintaan pengguna | Diagram siklus OBE di landing memiliki hub OBE yang bermakna, arah siklus yang terlihat tanpa gerak (panah dan busur umpan balik CQI), tracer lembut yang berhenti pada prefers-reduced-motion, empat simpul berupa tombol asli yang dapat dipilih dengan penunjuk dan papan ketik, panel penjelasan yang diumumkan secara sopan, dan tata letak yang tidak tumpang tindih dari 320 px sampai desktop besar | ⬜ terbuka | T-101 |
+| AC-70 | Permintaan pengguna | Blok kanan sheet Excel (matriks CPMK terhadap komponen, matriks CPL terhadap CPMK, ambang nilai dan rasio kelas, ringkasan ketercapaian) dibaca dan disimpan bersama batch dan sheet asalnya tanpa nilai mahasiswa; CPMK yang muncul di Excel dibuat otomatis dan nilainya tersimpan; impor ulang idempoten termasuk pada nilai di batas pembulatan | ✅ terpenuhi | T-102 |
+| AC-71 | Permintaan pengguna | Analitik kelas, program, dan mahasiswa memakai nilai kolom Excel bila sistem belum menghitung, dengan ambang dari kebijakan OBE atau, bila tidak ada, dari Excel yang ditandai sumbernya; tanpa keduanya ketercapaian tidak diklaim; jejak komponen ke CPMK ke CPL tersedia per kelas | ✅ terpenuhi | T-103 |
+| AC-72 | Permintaan pengguna | Grafik capaian bervariasi dan informatif berdasarkan riset kebutuhan OBE (sebaran tercapai, radar CPL, alir jejak, matriks bobot, dumbbell), masing-masing dengan legenda, keterangan sorot dan fokus papan ketik, dan tabel pendamping; dasar riset terdokumentasi | ✅ terpenuhi | T-104 |
+| AC-73 | Permintaan pengguna | Sisi mahasiswa tanpa pelacak per semester; profil menampilkan CPL yang telah dicapai; PDF unduhan hanya memuat identitas dan daftar CPL tercapai dengan sumber ambang | ✅ terpenuhi | T-105 |
+| AC-74 | Permintaan pengguna | Direktori mahasiswa mudah dicari dan dijelajahi: pencarian langsung (frasa utuh didahulukan, lalu semua kata berurutan bebas, hasil disorot), urutan relevansi dan urutan kolom yang dapat dibalik, penyaring aktif yang dapat dihapus satu per satu, paginasi bernomor dengan ringkasan rentang dan pilihan jumlah baris, halaman di luar jangkauan dipangkas, dan satu kueri dengan total jendela | ✅ terpenuhi | T-106 |
+| AC-75 | Permintaan pengguna | Admin melihat statistik berapa mahasiswa yang linear dan tidak linear (prediksi dari nilai CPL, dengan jumlah, persen, dan yang belum dapat dinilai), dapat memasukkan manual data nyata linear atau tidak beserta bidang kerja dan keeratan lima tingkat, dan melihat perbandingan prediksi dengan nyata beserta cara menghitungnya; data kurang tidak dihitung sebagai nol dan tanpa ambang prediksi tidak dikarang | ✅ terpenuhi | T-107 |
+| AC-76 | Permintaan pengguna | Tombol tampilkan password pada formulir tidak menghilangkan nilai, fokus, atau posisi kursor; memiliki satu nama aksesibel tetap dengan status lewat aria-pressed; dan kata sandi kembali tersembunyi setelah formulir dikirim | ✅ terpenuhi | T-108 |

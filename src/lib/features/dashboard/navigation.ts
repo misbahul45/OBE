@@ -12,6 +12,7 @@ import {
 	LayoutDashboard,
 	School,
 	ScrollText,
+	Route,
 	Target,
 	Users
 } from '@lucide/svelte';
@@ -49,7 +50,8 @@ const adminNavigation: NavGroup[] = [
 		label: 'Mutu',
 		items: [
 			{ title: 'Laporan', href: '/app/admin/reports', icon: FileText, hint: 'Unduh laporan PDF per kelas' },
-			{ title: 'CQI', href: '/app/admin/cqi', icon: ClipboardCheck, hint: 'Catat temuan mutu, tindakan perbaikan, bukti, dan evaluasi' }
+			{ title: 'CQI', href: '/app/admin/cqi', icon: ClipboardCheck, hint: 'Catat temuan mutu, tindakan perbaikan, bukti, dan evaluasi' },
+			{ title: 'Tracer alumni', href: '/app/admin/tracer', icon: Route, hint: 'Statistik linearitas lulusan: prediksi dari nilai CPL dan isian nyata alumni' }
 		]
 	},
 	{ label: 'Sistem', items: [{ title: 'Jejak audit', href: '/app/admin/audit', icon: ScrollText, hint: 'Riwayat perubahan data oleh pengguna' }] }

@@ -102,3 +102,37 @@
 - **Gerak:** hanya CSS dan satu `animateMotion` SMIL (tracer 18 detik per putaran; sorotan busur disinkronkan 4,5 detik per busur). Simpul tidak pernah bergerak. Pada `prefers-reduced-motion` tracer disembunyikan dan animasi dimatikan, sementara panah, busur putus-putus umpan balik, nomor tahap, dan teks panel tetap membawa arti. Parallax GSAP lama dihapus dari komponen ini.
 - **Pilihan:** klik memilih, klik ulang atau Esc membatalkan, panah memindahkan fokus. Tidak ada tautan ke halaman lain karena rute terkait (`/app/...`) berada di balik login dan landing hanya boleh menautkan ke `/login`.
 - **Bukti:** `tests/unit/landing/orbit.test.ts`, `tests/unit/landing/landing.test.ts`, `tests/e2e/landing/orbit.spec.ts` (hover, klik, papan ketik, gerakan dikurangi, lima ukuran viewport).
+
+## D-38 — Excel sebagai sumber ambang dan jejak; CPMK dibuat otomatis; kurikulum tetap dipertahankan
+- **Konteks:** di produksi tidak ada mahasiswa yang tercapai CPL-nya walau Excel memuatnya. Sebab: tidak ada kebijakan OBE aktif (ambang kosong), kolom CPMK dibuang karena definisi CPMK belum ada, analitik program hanya membaca hasil hitung sistem, dan blok matriks, ambang, serta ringkasan pada sheet diabaikan.
+- **Keputusan:** blok kanan sheet dibaca menjadi cetak biru (lihat bagian "Nilai dari Excel" pada `data-lineage-obe.md`), disimpan pada pemetaan sheet tanpa migrasi skema. Nilai Excel dipakai bila sistem belum menghitung; ambang dari Excel dipakai hanya bila kebijakan aktif tidak ada dan selalu ditandai. CPMK dibuat otomatis saat commit. Pemetaan mesin hitung tidak diisi otomatis agar angka yang tampil tidak berubah diam-diam. Fitur dan tabel kurikulum dipertahankan (permintaan pengguna: jangan hapus kurikulum).
+- **Perbedaan dengan Excel:** Excel memakai `>` pada ketercapaian, aplikasi `≥`. Tidak ada nilai CPL yang tepat 62 pada data yang ada, sehingga hasilnya sama.
+- **Bukti:** `tests/integration/imports/blueprint.test.ts`, `tests/unit/imports/obe-blueprint.test.ts`, `tests/local/imports/downloads-blueprint.test.ts`, latihan penuh Semester 1 sampai 7 pada basis data sekali pakai.
+
+## D-39 — Sisi mahasiswa: daftar CPL tercapai, tanpa pelacak per semester
+- **Keputusan:** profil mahasiswa tidak lagi memuat grafik rata-rata per semester; ringkasan memuat CPL yang telah dicapai. PDF unduhan hanya memuat identitas dan CPL yang tercapai, dengan ringkasan jumlah dan sumber ambang. Nilai gabungan antar mata kuliah memakai kebijakan agregasi; bila belum diatur dipakai rata-rata sederhana dan hal itu disebut.
+- **Bukti:** `tests/integration/reports/pdf.test.ts`, `tests/integration/students/profile.test.ts`, `tests/e2e/students/profile.spec.ts`.
+
+## D-40 — Pustaka grafik dari riset kebutuhan OBE
+- **Keputusan:** lima bentuk baru (`StackedShare`, `RadarChart`, `TraceFlow`, `LinkMatrix`, `Dumbbell`) dengan legenda, keterangan sorot dan fokus papan ketik lewat `markBinding`, dan tabel pendamping. Dasar dan hal yang tidak ditemukan di literatur ada pada `charts-research.md`.
+
+## D-41 — Perbandingan nilai impor memakai toleransi presisi penyimpanan
+- **Konteks:** tes lokal pada Excel asli menemukan impor ulang menandai 50 referensi sebagai berubah. Penyebab: 133 dari 24.667 nilai jatuh tepat di batas pembulatan `numeric(9,4)`, dan perbandingan `< 0,00005` tidak stabil di batas itu.
+- **Keputusan:** `sameStored` dengan toleransi 0,00005 + 1e-9, dipakai perencana dan commit. **Bukti:** `tests/unit/imports/numbers.test.ts`, `tests/local/imports/downloads-import.test.ts`.
+
+## D-42 — Pencarian mahasiswa: frasa utuh dahulu, semua kata sebagai cadangan; satu kueri dengan total jendela
+- **Konteks:** pencarian lama hanya mencocokkan satu potongan teks utuh, tanpa urutan relevansi, dan setiap halaman menjalankan dua kueri berat (hitung dan ambil) termasuk perhitungan kelengkapan nilai untuk semua mahasiswa. Paginasi hanya Sebelumnya dan Berikutnya dengan 20 baris tetap.
+- **Keputusan:** kata kunci dinormalisasi menjadi kata-kata. Frasa utuh dicoba dahulu karena mencocokkan nama lengkap secara tepat; bila kosong, setiap kata wajib ada pada nama atau NIM dengan urutan bebas. Mencoba kata-kata lebih dulu ditolak: pada uji E2E "Mahasiswa Uji 001" ikut mencocokkan mahasiswa lain karena "001" kebetulan ada di NIM mereka. Urutan relevansi: NIM persis, awalan NIM, awalan nama, kata di tengah nama, lalu nama. Urutan kolom (NIM, nama, angkatan, jumlah mata kuliah) dapat dibalik dan diumumkan lewat `aria-sort`. Total diambil dengan `count(*) over()` pada kueri yang sama; kueri hitung terpisah hanya dijalankan bila halaman yang diminta melampaui jumlah halaman, lalu halaman dipangkas ke halaman terakhir. Kelengkapan nilai memakai subkueri ringan per mahasiswa dan join lateral hanya saat penyaring kelengkapan dipakai. Ukuran halaman pada URL dibatasi pada 10, 20, 50, 100; layanan tetap menerima 1 sampai 100.
+- **Komponen bersama:** `Pager` kini menampilkan halaman pertama dan terakhir, nomor halaman dengan titik-titik, ringkasan rentang, dan pilihan jumlah baris (opsional, sehingga enam halaman lain tidak berubah selain nomor halaman). `markBinding` tidak dipakai di sini.
+- **Bukti:** `tests/unit/shared/pager.test.ts`, `tests/integration/students/directory.test.ts`, `tests/e2e/students/directory.spec.ts`.
+
+## D-43 — Linearitas: prediksi dari nilai CPL dibandingkan dengan isian nyata manual
+- **Konteks:** dokumen OBE prodi mendefinisikan linearitas lulusan dari kecocokan kompetensi dengan bidang kerja (F ≥ 70), sedangkan Tracer Study UNAIR mengukur keeratan bidang studi dengan pekerjaan lewat penilaian alumni. Data alumni asli belum ada.
+- **Keputusan:** prediksi dihitung sekarang dari nilai CPL (Jalur A sebagai rumus utama), dan isian nyata (linear atau tidak, bidang kerja, keeratan lima tingkat UNAIR) disimpan manual per mahasiswa pada tabel `tracer_records`. Admin melihat jumlah dan persen linear, tidak linear, dan belum dapat dinilai, matriks prediksi dibanding nyata, rincian per bidang kerja, serta cara menghitung. "Belum diisi" tidak dihitung sebagai tidak linear. CPL tanpa nilai atau ambang keluar dari penyebut, bukan dihitung nol. Ambang 70, α 0,7, dan kategori adalah asumsi dari dokumen prodi, ditandai sebagai asumsi pada halaman.
+- **Pilihan yang ditolak:** menamai prediksi sebagai "tracer study". Hasilnya bukan ukuran resmi UNAIR, sehingga keeratan resmi disimpan terpisah sebagai isian nyata.
+- **Bukti:** `tests/unit/tracer/calc.test.ts` (termasuk contoh hitung dokumen), `tests/integration/tracer`, `tests/e2e/tracer/tracer.spec.ts`, dan audit aksesibilitas halaman tracer.
+
+## D-44 — Tombol tampilkan password: satu nama tetap, status lewat aria-pressed, tersembunyi setelah kirim
+- **Konteks:** reproduksi di browser menunjukkan tiga cacat pada `PasswordField`: setelah masuk gagal kata sandi tetap terlihat (`type="text"`) dan fokus hilang ke badan halaman; klik tombol memindahkan fokus dari kolom sehingga kursor hilang; dan nama tombol berganti ("Tampilkan" dan "Sembunyikan") sambil memakai `aria-pressed`, sehingga pembaca layar membacakan status ganda.
+- **Keputusan:** nama tombol tetap "Tampilkan password" dan statusnya dibawa `aria-pressed`. Setelah klik, fokus dan posisi kursor dikembalikan ke kolom. Formulir yang dikirim atau direset menyembunyikan kembali kata sandi. State `value` lokal yang tidak dipakai dibuang karena nilai dibaca langsung dari formulir.
+- **Bukti:** `tests/e2e/auth/password-toggle.spec.ts`.

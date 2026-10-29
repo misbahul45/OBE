@@ -8,7 +8,7 @@ test('direktori mahasiswa dapat dicari dan membuka profil', async ({ asAdmin: pa
 	await page.goto('/app/admin/students');
 	await page.getByLabel('Cari mahasiswa').fill('Mahasiswa Uji 001');
 	await page.getByRole('button', { name: 'Terapkan filter' }).click();
-	const link = page.getByRole('link', { name: 'Mahasiswa Uji 001' });
+	const link = page.getByRole('link', { name: 'Mahasiswa Uji 001', exact: true });
 	await expect(link).toBeVisible();
 	await link.click();
 	await expect(page).toHaveURL(/\/app\/students\/[0-9a-f-]{36}$/);

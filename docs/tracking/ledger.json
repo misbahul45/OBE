@@ -383,6 +383,41 @@
 			"id": "AC-69",
 			"source": "Permintaan pengguna",
 			"text": "Diagram siklus OBE di landing memiliki hub OBE yang bermakna, arah siklus yang terlihat tanpa gerak (panah dan busur umpan balik CQI), tracer lembut yang berhenti pada prefers-reduced-motion, empat simpul berupa tombol asli yang dapat dipilih dengan penunjuk dan papan ketik, panel penjelasan yang diumumkan secara sopan, dan tata letak yang tidak tumpang tindih dari 320 px sampai desktop besar"
+		},
+		{
+			"id": "AC-70",
+			"source": "Permintaan pengguna",
+			"text": "Blok kanan sheet Excel (matriks CPMK terhadap komponen, matriks CPL terhadap CPMK, ambang nilai dan rasio kelas, ringkasan ketercapaian) dibaca dan disimpan bersama batch dan sheet asalnya tanpa nilai mahasiswa; CPMK yang muncul di Excel dibuat otomatis dan nilainya tersimpan; impor ulang idempoten termasuk pada nilai di batas pembulatan"
+		},
+		{
+			"id": "AC-71",
+			"source": "Permintaan pengguna",
+			"text": "Analitik kelas, program, dan mahasiswa memakai nilai kolom Excel bila sistem belum menghitung, dengan ambang dari kebijakan OBE atau, bila tidak ada, dari Excel yang ditandai sumbernya; tanpa keduanya ketercapaian tidak diklaim; jejak komponen ke CPMK ke CPL tersedia per kelas"
+		},
+		{
+			"id": "AC-72",
+			"source": "Permintaan pengguna",
+			"text": "Grafik capaian bervariasi dan informatif berdasarkan riset kebutuhan OBE (sebaran tercapai, radar CPL, alir jejak, matriks bobot, dumbbell), masing-masing dengan legenda, keterangan sorot dan fokus papan ketik, dan tabel pendamping; dasar riset terdokumentasi"
+		},
+		{
+			"id": "AC-73",
+			"source": "Permintaan pengguna",
+			"text": "Sisi mahasiswa tanpa pelacak per semester; profil menampilkan CPL yang telah dicapai; PDF unduhan hanya memuat identitas dan daftar CPL tercapai dengan sumber ambang"
+		},
+		{
+			"id": "AC-74",
+			"source": "Permintaan pengguna",
+			"text": "Direktori mahasiswa mudah dicari dan dijelajahi: pencarian langsung (frasa utuh didahulukan, lalu semua kata berurutan bebas, hasil disorot), urutan relevansi dan urutan kolom yang dapat dibalik, penyaring aktif yang dapat dihapus satu per satu, paginasi bernomor dengan ringkasan rentang dan pilihan jumlah baris, halaman di luar jangkauan dipangkas, dan satu kueri dengan total jendela"
+		},
+		{
+			"id": "AC-75",
+			"source": "Permintaan pengguna",
+			"text": "Admin melihat statistik berapa mahasiswa yang linear dan tidak linear (prediksi dari nilai CPL, dengan jumlah, persen, dan yang belum dapat dinilai), dapat memasukkan manual data nyata linear atau tidak beserta bidang kerja dan keeratan lima tingkat, dan melihat perbandingan prediksi dengan nyata beserta cara menghitungnya; data kurang tidak dihitung sebagai nol dan tanpa ambang prediksi tidak dikarang"
+		},
+		{
+			"id": "AC-76",
+			"source": "Permintaan pengguna",
+			"text": "Tombol tampilkan password pada formulir tidak menghilangkan nilai, fokus, atau posisi kursor; memiliki satu nama aksesibel tetap dengan status lewat aria-pressed; dan kata sandi kembali tersembunyi setelah formulir dikirim"
 		}
 	],
 	"tasks": [
@@ -3195,6 +3230,334 @@
 				"bunx playwright test tests/e2e/landing --project=flows"
 			],
 			"evidence": []
+		},
+		{
+			"id": "T-102",
+			"phase": "P6",
+			"title": "Cetak biru OBE dari blok kanan Excel: ekstraktor, CPMK otomatis, penyimpanan bersama jejak batch, toleransi presisi penyimpanan",
+			"status": "done",
+			"deps": [
+				"T-046"
+			],
+			"ac": [
+				"AC-70"
+			],
+			"verify": [
+				"bun test tests/unit/imports/obe-blueprint.test.ts tests/unit/imports/numbers.test.ts",
+				"bun test tests/integration/imports",
+				"bun test tests/local/imports"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 11:47 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/imports/obe-blueprint.test.ts tests/unit/imports/numbers.test.ts",
+					"result": "PASS",
+					"summary": "Ran 16 tests across 2 files. [114.00ms]"
+				},
+				{
+					"at": "2026-10-28 11:47 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/imports",
+					"result": "PASS",
+					"summary": "Ran 91 tests across 11 files. [14.82s]"
+				},
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/local/imports",
+					"result": "PASS",
+					"summary": "Ran 16 tests across 3 files. [72.21s]"
+				},
+				{
+					"at": "2026-10-28 17:44 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/imports/obe-blueprint.test.ts tests/unit/imports/numbers.test.ts",
+					"result": "PASS",
+					"summary": "Ran 17 tests across 2 files. [121.00ms]"
+				},
+				{
+					"at": "2026-10-28 17:44 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/imports",
+					"result": "PASS",
+					"summary": "Ran 91 tests across 11 files. [12.32s]"
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/local/imports",
+					"result": "PASS",
+					"summary": "Ran 16 tests across 3 files. [62.10s]"
+				}
+			]
+		},
+		{
+			"id": "T-103",
+			"phase": "P6",
+			"title": "Analitik kelas, program, dan mahasiswa berbasis nilai Excel dengan ambang dari Excel dan jejak komponen ke CPL",
+			"status": "done",
+			"deps": [
+				"T-102",
+				"T-064"
+			],
+			"ac": [
+				"AC-71"
+			],
+			"verify": [
+				"bun test tests/unit/outcomes",
+				"bun test tests/integration/outcomes tests/integration/students"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/outcomes",
+					"result": "PASS",
+					"summary": "Ran 26 tests across 2 files. [79.00ms]"
+				},
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/outcomes tests/integration/students",
+					"result": "PASS",
+					"summary": "Ran 33 tests across 5 files. [4.12s]"
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/outcomes",
+					"result": "PASS",
+					"summary": "Ran 27 tests across 2 files. [91.00ms]"
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/outcomes tests/integration/students",
+					"result": "PASS",
+					"summary": "Ran 39 tests across 5 files. [3.88s]"
+				}
+			]
+		},
+		{
+			"id": "T-104",
+			"phase": "P6",
+			"title": "Pustaka grafik baru dari riset kebutuhan OBE dan integrasinya pada halaman kelas, program, dan mahasiswa",
+			"status": "done",
+			"deps": [
+				"T-103",
+				"T-063"
+			],
+			"ac": [
+				"AC-72"
+			],
+			"verify": [
+				"bun test tests/unit/shared/chart-math.test.ts",
+				"bun run check",
+				"bunx playwright test tests/e2e/lecturers tests/e2e/students --project=flows"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/shared/chart-math.test.ts",
+					"result": "PASS",
+					"summary": "Ran 9 tests across 1 file. [49.00ms]"
+				},
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun run check",
+					"result": "PASS",
+					"summary": "$ svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+				},
+				{
+					"at": "2026-10-28 11:50 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/lecturers tests/e2e/students --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer]"
+				},
+				{
+					"at": "2026-10-28 17:46 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/shared/chart-math.test.ts",
+					"result": "PASS",
+					"summary": "Ran 9 tests across 1 file. [46.00ms]"
+				},
+				{
+					"at": "2026-10-28 17:47 UTC",
+					"kind": "cmd",
+					"cmd": "bun run check",
+					"result": "PASS",
+					"summary": "$ svelte-kit sync && svelte-check --tsconfig ./tsconfig.json"
+				},
+				{
+					"at": "2026-10-28 17:47 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/lecturers tests/e2e/students --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+				}
+			]
+		},
+		{
+			"id": "T-105",
+			"phase": "P6",
+			"title": "Sisi mahasiswa: daftar CPL tercapai, tanpa pelacak per semester, PDF hanya memuat CPL tercapai",
+			"status": "done",
+			"deps": [
+				"T-103",
+				"T-068"
+			],
+			"ac": [
+				"AC-73"
+			],
+			"verify": [
+				"bun test tests/integration/reports tests/integration/students"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 11:49 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/reports tests/integration/students",
+					"result": "PASS",
+					"summary": "Ran 26 tests across 4 files. [3.31s]"
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/reports tests/integration/students",
+					"result": "PASS",
+					"summary": "Ran 32 tests across 4 files. [3.63s]"
+				}
+			]
+		},
+		{
+			"id": "T-106",
+			"phase": "P6",
+			"title": "Optimasi pencarian dan paginasi direktori mahasiswa",
+			"status": "done",
+			"deps": [
+				"T-037"
+			],
+			"ac": [
+				"AC-74"
+			],
+			"verify": [
+				"bun test tests/unit/shared/pager.test.ts",
+				"bun test tests/integration/students/directory.test.ts",
+				"bunx playwright test tests/e2e/students --project=flows"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 11:58 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/shared/pager.test.ts",
+					"result": "PASS",
+					"summary": "Ran 8 tests across 1 file. [42.00ms]"
+				},
+				{
+					"at": "2026-10-28 11:58 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/students/directory.test.ts",
+					"result": "PASS",
+					"summary": "Ran 13 tests across 1 file. [1252.00ms]"
+				},
+				{
+					"at": "2026-10-28 11:58 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/students --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/shared/pager.test.ts",
+					"result": "PASS",
+					"summary": "Ran 8 tests across 1 file. [36.00ms]"
+				},
+				{
+					"at": "2026-10-28 17:45 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/students/directory.test.ts",
+					"result": "PASS",
+					"summary": "Ran 13 tests across 1 file. [1110.00ms]"
+				},
+				{
+					"at": "2026-10-28 17:46 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/students --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+				}
+			]
+		},
+		{
+			"id": "T-107",
+			"phase": "P6",
+			"title": "Tracer alumni dan linearitas: prediksi dari nilai CPL, isian nyata manual, statistik linear dan tidak linear",
+			"status": "done",
+			"deps": [
+				"T-103",
+				"T-091"
+			],
+			"ac": [
+				"AC-75"
+			],
+			"verify": [
+				"bun test tests/unit/tracer",
+				"bun test tests/integration/tracer",
+				"bunx playwright test tests/e2e/tracer --project=flows"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-28 18:27 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/unit/tracer",
+					"result": "PASS",
+					"summary": "Ran 9 tests across 1 file. [65.00ms]"
+				},
+				{
+					"at": "2026-10-28 18:27 UTC",
+					"kind": "cmd",
+					"cmd": "bun test tests/integration/tracer",
+					"result": "PASS",
+					"summary": "Ran 8 tests across 2 files. [1.58s]"
+				},
+				{
+					"at": "2026-10-28 18:28 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/tracer --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer] - Adjust chunk size limit for this warning via build.chunkSizeWarningLimit."
+				}
+			]
+		},
+		{
+			"id": "T-108",
+			"phase": "P2",
+			"title": "Perbaikan state tombol tampilkan password: fokus dan kursor dipertahankan, nama aksesibel tetap, tersembunyi kembali setelah kirim",
+			"status": "done",
+			"deps": [
+				"T-023"
+			],
+			"ac": [
+				"AC-76"
+			],
+			"verify": [
+				"bunx playwright test tests/e2e/auth --project=flows"
+			],
+			"evidence": [
+				{
+					"at": "2026-10-29 02:42 UTC",
+					"kind": "cmd",
+					"cmd": "bunx playwright test tests/e2e/auth --project=flows",
+					"result": "PASS",
+					"summary": "[WebServer] 2026-10-29T02:41:58.542Z WARN [Better Auth]: User not found"
+				}
+			]
 		}
 	]
 }

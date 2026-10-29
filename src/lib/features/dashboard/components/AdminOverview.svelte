@@ -2,7 +2,7 @@
 	import { Alert, AlertDescription } from '#lib/components/ui/alert/index.ts';
 	import { Button } from '#lib/components/ui/button/index.ts';
 	import { Card, CardContent } from '#lib/components/ui/card/index.ts';
-	import { BarChart, Heatmap, formatValue } from '#lib/shared/charts/index.ts';
+	import { BarChart, Heatmap, StackedShare } from '#lib/shared/charts/index.ts';
 	import type { ProgramAnalytics } from '#lib/features/outcomes/index.ts';
 	import EmptyState from '#lib/shared/ui/EmptyState.svelte';
 	import StatusBadge from '#lib/shared/ui/StatusBadge.svelte';
@@ -28,6 +28,8 @@
 	);
 	const heatmapCells = $derived(offeringKeys.map(([offeringId]) => program.cpl.map((c) => ({ value: c.offerings.find((o) => o.offeringId === offeringId)?.mean ?? null }))));
 	const aggregated = $derived(program.cpl.map((c) => ({ label: c.code, value: c.aggregate.value, note: c.aggregate.status === 'not_configured' ? 'agregasi belum diatur' : `${c.aggregate.used} dari ${c.aggregate.entries} kelas` })));
+	const shares = $derived(program.cpl.map((c) => ({ label: c.code, achieved: c.distribution.achieved, notAchieved: c.distribution.notAchieved, insufficient: c.distribution.insufficient + c.distribution.unconfigured, ratio: c.distribution.ratioAchieved, meets: null })));
+	const excelTargets = $derived(program.cpl.some((c) => c.targetSource === 'excel'));
 	const distinctTargets = $derived([...new Set(program.cpl.map((c) => c.target).filter((t): t is number => t !== null))]);
 	const aggregationLabel = $derived({ not_configured: 'belum diatur', simple_mean: 'rata-rata sederhana antar kelas', credit_weighted_mean: 'rata-rata tertimbang SKS' }[program.policy?.aggregation ?? 'not_configured']);
 </script>
@@ -52,13 +54,16 @@
 
 <section aria-labelledby="cpl-heading" class="mb-10 space-y-4">
 	<h2 id="cpl-heading" class="text-lg font-semibold">Capaian pembelajaran lulusan</h2>
-	{#if !program.policy}
+	{#if !program.policy && excelTargets}
+		<Alert role="status"><AlertDescription>Kebijakan OBE belum aktif, sehingga ketercapaian memakai ambang nilai yang tertulis pada berkas Excel. Tetapkan kebijakan pada menu Kurikulum untuk menggantinya.</AlertDescription></Alert>
+	{:else if !program.policy}
 		<Alert role="status"><AlertDescription>Belum ada kebijakan OBE aktif. Tetapkan ambang, target, dan metode agregasi pada menu Kurikulum.</AlertDescription></Alert>
 	{/if}
 	{#if program.cpl.length === 0}
 		<EmptyState title="Belum ada hasil CPL" description="Hasil muncul setelah nilai diimpor, komponen dipetakan ke CPMK, dan CPMK dipetakan ke CPL." actionLabel="Impor nilai kelas" actionHref="/app/admin/imports" />
 	{:else}
 		<Heatmap title="Rata-rata CPL per kelas" description="Setiap sel adalah rata-rata nilai CPL mahasiswa yang datanya lengkap pada kelas tersebut. Kotak bergaris putus-putus berarti belum ada nilai." rows={offeringKeys.map(([, label]) => label)} columns={program.cpl.map((c) => c.code)} cells={heatmapCells} />
+		<StackedShare title="Sebaran capaian CPL seluruh kelas" description="Jumlah pasangan mahasiswa dan kelas yang mencapai ambang pada tiap CPL. Jumlahnya dijumlahkan langsung, bukan merata-ratakan rasio tiap kelas." items={shares} />
 		{#if aggregated.some((a) => a.value !== null)}
 			<BarChart title="CPL tingkat program" description={`Metode agregasi antar kelas: ${aggregationLabel}.`} items={aggregated} max={100} target={distinctTargets.length === 1 ? distinctTargets[0] : null} targetLabel="Target" emptyText="Belum ada data CPL." />
 		{:else}

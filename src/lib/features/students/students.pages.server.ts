@@ -5,6 +5,7 @@ import { listCourses, listSemesterOptions } from '#lib/features/academic/index.s
 import { requireRole } from '#lib/features/auth/index.server.ts';
 import type { SessionUser } from '#lib/features/auth/index.ts';
 import { listCohortYears, listStudents, setStudentCohort, type StudentFilters } from './students.queries.server.ts';
+import { parseDirection, parsePageSize, parseSort } from './students.search.ts';
 
 type Locals = { user: SessionUser | null };
 
@@ -19,8 +20,10 @@ export async function studentDirectoryLoad(db: Database, { locals, url }: { loca
 		semesterId: url.searchParams.get('semester') || undefined,
 		courseId: url.searchParams.get('matkul') || undefined,
 		completeness: completenessParam === 'complete' || completenessParam === 'incomplete' ? completenessParam : undefined,
+		sort: parseSort(url.searchParams.get('urut')),
+		direction: parseDirection(url.searchParams.get('arah')),
 		page: pageParam(url),
-		pageSize: 20
+		pageSize: parsePageSize(url.searchParams.get('ukuran'))
 	};
 	const [list, cohorts, semesters, courses] = await Promise.all([listStudents(db, 'all', filters), listCohortYears(db), listSemesterOptions(db), listCourses(db, { pageSize: 100 })]);
 	return {
@@ -28,7 +31,7 @@ export async function studentDirectoryLoad(db: Database, { locals, url }: { loca
 		cohorts,
 		semesters: semesters.map((s) => ({ id: s.id, name: s.name })),
 		courses: courses.rows.map((c) => ({ id: c.id, label: `${c.code} · ${c.name}` })),
-		query: { search, cohort: cohortParam, semester: filters.semesterId ?? '', course: filters.courseId ?? '', completeness: filters.completeness ?? '' }
+		query: { search, cohort: cohortParam, semester: filters.semesterId ?? '', course: filters.courseId ?? '', completeness: filters.completeness ?? '', sort: filters.sort ?? '', direction: filters.direction ?? '', pageSize: list.pageSize }
 	};
 }
 

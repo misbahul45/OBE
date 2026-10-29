@@ -39,10 +39,10 @@ function numberRightOf(grid: SheetGrid, at: Position | null): number | null {
 }
 
 function readComponentMatrix(grid: SheetGrid, head: Position, mapping: SheetMapping, analysis: SheetAnalysis): BlueprintCpmk[] {
-	const codeByKey = new Map<string, string>();
+	const codesByKey = new Map<string, string[]>();
 	for (const component of mapping.components) {
 		const key = looseKey(analysis.columns[component.column]?.header ?? '');
-		if (key !== '' && !codeByKey.has(key)) codeByKey.set(key, component.code);
+		if (key !== '') codesByKey.set(key, [...(codesByKey.get(key) ?? []), component.code]);
 	}
 	const columns: { col: number; code: string | null }[] = [];
 	let blanks = 0;
@@ -53,7 +53,7 @@ function readComponentMatrix(grid: SheetGrid, head: Position, mapping: SheetMapp
 			continue;
 		}
 		blanks = 0;
-		columns.push({ col, code: codeByKey.get(looseKey(text)) ?? null });
+		columns.push({ col, code: codesByKey.get(looseKey(text))?.shift() ?? null });
 	}
 	if (columns.length > 0 && columns.every((c) => c.code === null) && columns.length === mapping.components.length)
 		columns.forEach((c, i) => (c.code = mapping.components[i].code));

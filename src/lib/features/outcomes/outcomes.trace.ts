@@ -16,16 +16,23 @@ export function buildTrace({ blueprint, components, cpmk, cpl, source }: TraceIn
 	const cpmkByCode = new Map(cpmk.map((c) => [c.code, c]));
 	const cplByCode = new Map(cpl.map((c) => [c.code, c]));
 
-	const links: TraceLink[] = [];
+	const merged = new Map<string, TraceLink>();
+	const addLink = (link: TraceLink) => {
+		const key = `${link.from}>${link.to}`;
+		const existing = merged.get(key);
+		if (existing) merged.set(key, { ...existing, weight: existing.weight + link.weight, display: Math.max(existing.display, link.display) });
+		else merged.set(key, link);
+	};
 	for (const row of blueprint.cpmk)
 		for (const part of row.components) {
 			const component = componentByCode.get(part.componentCode);
 			if (!component) continue;
 			const share = component.weightPercent && component.weightPercent > 0 ? component.weightPercent : 1;
-			links.push({ from: `k:${part.componentCode}`, to: `m:${row.code}`, weight: part.coefficient * share, display: part.coefficient });
+			addLink({ from: `k:${part.componentCode}`, to: `m:${row.code}`, weight: part.coefficient * share, display: part.coefficient });
 		}
 	for (const row of blueprint.cpl)
-		for (const link of row.links) links.push({ from: `m:${link.cpmk}`, to: `l:${row.code}`, weight: link.weight, display: link.weight });
+		for (const link of row.links) addLink({ from: `m:${link.cpmk}`, to: `l:${row.code}`, weight: link.weight, display: link.weight });
+	const links = [...merged.values()];
 	if (links.length === 0) return null;
 
 	const used = new Set(links.flatMap((l) => [l.from, l.to]));

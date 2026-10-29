@@ -10,3 +10,4 @@ export * from '#lib/features/outcomes/outcomes.schema.ts';
 export * from '#lib/features/audit/audit.schema.ts';
 export * from '#lib/features/cqi/cqi.schema.ts';
 export * from '#lib/features/profiles/profiles.schema.ts';
+export * from '#lib/features/tracer/tracer.schema.ts';

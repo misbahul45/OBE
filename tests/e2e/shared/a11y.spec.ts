@@ -34,8 +34,9 @@ for (const scheme of schemes) {
 		});
 
 		test('halaman Super Admin', async ({ asAdmin: page, state }) => {
+			test.setTimeout(150_000);
 			await page.emulateMedia({ colorScheme: scheme });
-			const paths = ['/app/admin', '/app/admin/terms', '/app/admin/courses', '/app/admin/lecturers', '/app/admin/offerings', `/app/admin/offerings/${state.ids.offeringA}`, '/app/admin/curriculum', `/app/admin/curriculum/${state.ids.courseA}`, '/app/admin/students', '/app/admin/imports', '/app/admin/audit', '/app/admin/cqi', '/app/admin/reports', '/app/account/password', '/app/account/profile'];
+			const paths = ['/app/admin', '/app/admin/terms', '/app/admin/courses', '/app/admin/lecturers', '/app/admin/offerings', `/app/admin/offerings/${state.ids.offeringA}`, '/app/admin/curriculum', `/app/admin/curriculum/${state.ids.courseA}`, '/app/admin/students', '/app/admin/tracer', '/app/admin/imports', '/app/admin/audit', '/app/admin/cqi', '/app/admin/reports', '/app/account/password', '/app/account/profile'];
 			for (const path of paths) {
 				await page.goto(path);
 				await audit(page);

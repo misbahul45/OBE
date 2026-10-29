@@ -15,6 +15,13 @@
       "when": 1792773394783,
       "tag": "0001_vengeful_masque",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1793210521323,
+      "tag": "0002_remarkable_crusher_hogan",
+      "breakpoints": true
     }
   ]
 }

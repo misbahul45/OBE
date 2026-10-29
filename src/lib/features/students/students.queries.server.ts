@@ -3,6 +3,7 @@ import type { Database, DbExecutor } from '#lib/shared/db/client.server.ts';
 import { NotFoundError } from '#lib/shared/http/errors.ts';
 import { recordAudit } from '#lib/features/audit/index.server.ts';
 import { students } from './students.schema.ts';
+import { defaultStudentPageSize, searchTokens, type SortDirection, type StudentSort } from './students.search.ts';
 
 export type StudentScope = 'all' | string[];
 
@@ -12,6 +13,8 @@ export type StudentFilters = {
 	semesterId?: string;
 	courseId?: string;
 	completeness?: 'complete' | 'incomplete';
+	sort?: StudentSort;
+	direction?: SortDirection;
 	page?: number;
 	pageSize?: number;
 };
@@ -26,7 +29,6 @@ export type StudentListItem = {
 	completeEnrollments: number;
 };
 
-const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, Math.trunc(value)));
 const escapeLike = (value: string) => value.replace(/[\\%_]/g, (c) => `\\${c}`);
 
 function scopeClause(scope: StudentScope): SQL | undefined {
@@ -35,14 +37,24 @@ function scopeClause(scope: StudentScope): SQL | undefined {
 	return sql`e.offering_id in (${sql.join(scope.map((id) => sql`${id}::uuid`), sql`, `)})`;
 }
 
+const sortColumns: Record<StudentSort, string> = { nama: 'g.name', nim: 'g.nim', angkatan: 'g."cohortYear"', matkul: 'g."enrollmentCount"' };
+
 export async function listStudents(db: DbExecutor, scope: StudentScope, filters: StudentFilters = {}) {
-	const pageSize = clamp(filters.pageSize ?? 25, 1, 100);
-	const page = Math.max(1, Math.trunc(filters.page ?? 1));
+	const tokens = searchTokens(filters.search);
+	const first = await runList(db, scope, filters, tokens.length > 1 ? 'phrase' : 'tokens');
+	if (first.total > 0 || tokens.length <= 1) return first;
+	return runList(db, scope, filters, 'tokens');
+}
+
+async function runList(db: DbExecutor, scope: StudentScope, filters: StudentFilters, mode: 'phrase' | 'tokens') {
+	const pageSize = Math.min(100, Math.max(1, Math.trunc(filters.pageSize ?? defaultStudentPageSize)));
+	const requestedPage = Math.max(1, Math.trunc(filters.page ?? 1));
+	const tokens = searchTokens(filters.search);
 	const where: SQL[] = [];
 	const scoped = scopeClause(scope);
 	if (scoped) where.push(scoped);
-	if (filters.search) {
-		const pattern = `%${escapeLike(filters.search.trim())}%`;
+	for (const needle of mode === 'phrase' ? [tokens.join(' ')] : tokens) {
+		const pattern = `%${escapeLike(needle)}%`;
 		where.push(sql`(s.name ilike ${pattern} or s.nim ilike ${pattern})`);
 	}
 	if (filters.cohortYear === 'unknown') where.push(sql`s.cohort_year is null`);
@@ -51,36 +63,70 @@ export async function listStudents(db: DbExecutor, scope: StudentScope, filters:
 	if (filters.courseId) where.push(sql`o.course_id = ${filters.courseId}::uuid`);
 	const whereSql = where.length ? sql`where ${sql.join(where, sql` and `)}` : sql``;
 
-	const base = sql`
-		from students s
-		join enrollments e on e.student_id = s.id
-		join course_offerings o on o.id = e.offering_id
-		left join lateral (
+	const phrase = escapeLike(tokens.join(' '));
+	const rank = tokens.length
+		? sql`case when s.nim = ${tokens.join(' ')} then 0 when s.nim ilike ${`${phrase}%`} then 1 when s.name ilike ${`${phrase}%`} then 2 when s.name ilike ${`% ${phrase}%`} then 3 else 4 end`
+		: sql`0`;
+
+	const needsCompleteness = filters.completeness !== undefined;
+	const completenessJoin = needsCompleteness
+		? sql`left join lateral (
 			select
 				count(*) filter (where c.is_required and c.is_active) as total,
 				count(sc.id) filter (where c.is_required and c.is_active and sc.score is not null) as scored
 			from assessment_components c
 			left join assessment_scores sc on sc.component_id = c.id and sc.enrollment_id = e.id
 			where c.offering_id = e.offering_id
-		) comp on true
-		${whereSql}`;
+		) comp on true`
+		: sql``;
 	const having =
 		filters.completeness === 'complete'
 			? sql`having count(distinct e.id) = count(distinct e.id) filter (where comp.total > 0 and comp.total = comp.scored)`
 			: filters.completeness === 'incomplete'
 				? sql`having count(distinct e.id) > count(distinct e.id) filter (where comp.total > 0 and comp.total = comp.scored)`
 				: sql``;
+	const completeSelect = needsCompleteness
+		? sql`(count(distinct e.id) filter (where comp.total > 0 and comp.total = comp.scored))::int`
+		: sql`(select count(*) from enrollments e2 where e2.student_id = s.id and not exists (select 1 from assessment_components c2 where c2.offering_id = e2.offering_id and c2.is_required and c2.is_active and not exists (select 1 from assessment_scores sc2 where sc2.component_id = c2.id and sc2.enrollment_id = e2.id and sc2.score is not null)) and exists (select 1 from assessment_components c3 where c3.offering_id = e2.offering_id and c3.is_required and c3.is_active))::int`;
 
 	const grouped = sql`select s.id, s.nim, s.name, s.cohort_year as "cohortYear",
 			count(distinct e.id)::int as "enrollmentCount",
 			count(distinct o.semester_id)::int as "semesterCount",
-			(count(distinct e.id) filter (where comp.total > 0 and comp.total = comp.scored))::int as "completeEnrollments"
-		${base} group by s.id ${having}`;
+			${completeSelect} as "completeEnrollments",
+			${rank} as rank
+		from students s
+		join enrollments e on e.student_id = s.id
+		join course_offerings o on o.id = e.offering_id
+		${completenessJoin}
+		${whereSql}
+		group by s.id ${having}`;
 
-	const totalRows = (await db.execute(sql`select count(*)::int as total from (${grouped}) g`)) as unknown as { total: number }[];
-	const rows = (await db.execute(sql`${grouped} order by s.name asc, s.nim asc limit ${pageSize} offset ${(page - 1) * pageSize}`)) as unknown as StudentListItem[];
-	const total = Number(totalRows[0]?.total ?? 0);
-	return { rows, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)) };
+	const sort = filters.sort;
+	const direction = filters.direction === 'turun' ? 'desc' : 'asc';
+	const orderBy = sort
+		? sql.raw(`${sortColumns[sort]} ${direction}${sort === 'angkatan' ? ' nulls last' : ''}, g.name asc, g.nim asc`)
+		: tokens.length
+			? sql.raw('g.rank asc, g.name asc, g.nim asc')
+			: sql.raw('g.name asc, g.nim asc');
+
+	const fetchPage = async (target: number) =>
+		(await db.execute(sql`select g.id, g.nim, g.name, g."cohortYear", g."enrollmentCount", g."semesterCount", g."completeEnrollments", (count(*) over())::int as total
+			from (${grouped}) g order by ${orderBy} limit ${pageSize} offset ${(target - 1) * pageSize}`)) as unknown as (StudentListItem & { total: number })[];
+
+	let page = requestedPage;
+	let fetched = await fetchPage(page);
+	let total = Number(fetched[0]?.total ?? 0);
+	if (fetched.length === 0 && page > 1) {
+		const counted = (await db.execute(sql`select count(*)::int as total from (${grouped}) g`)) as unknown as { total: number }[];
+		total = Number(counted[0]?.total ?? 0);
+		page = Math.max(1, Math.ceil(total / pageSize));
+		fetched = total > 0 ? await fetchPage(page) : [];
+	}
+	const rows: StudentListItem[] = fetched.map(({ total: _total, ...row }) => {
+		void _total;
+		return row;
+	});
+	return { rows, total, page, pageSize, pageCount: Math.max(1, Math.ceil(total / pageSize)), tokens, matched: mode };
 }
 
 export async function canViewStudent(db: DbExecutor, scope: StudentScope, studentId: string): Promise<boolean> {

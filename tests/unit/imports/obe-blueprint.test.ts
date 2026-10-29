@@ -65,4 +65,16 @@ describe('ekstraksi cetak biru OBE dari blok kanan sheet', () => {
 		});
 		expect(codes).toEqual(['CPMK-1', 'CPMK-2', 'CPMK-10']);
 	});
+
+	test('kolom komponen dengan teks header identik dipasangkan menurut urutan, tidak ke kode yang sama dua kali', () => {
+		const grid = blueprintSheet('Header Kembar', undefined, { matrixHeaders: ['UTS (40 %)', 'UTS (40 %)'] });
+		const analysis = analyzeSheet(grid);
+		const mapping = suggestMapping(analysis)!;
+		const first = mapping.components[0];
+		const second = mapping.components[1];
+		const twin = { ...mapping, components: [first, { ...second, column: first.column, code: 'UTS-2' }] };
+		const blueprint = extractObeBlueprint(grid, analysis, twin)!;
+		const used = blueprint.cpmk.flatMap((c) => c.components.map((p) => p.componentCode));
+		expect(used.sort()).toEqual(['UTS-1', 'UTS-2']);
+	});
 });

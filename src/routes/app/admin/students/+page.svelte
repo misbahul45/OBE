@@ -15,4 +15,4 @@
 
 <div class="mb-4"><FormMessage message={state?.message} success={state?.success} /></div>
 
-<StudentDirectory rows={data.rows} total={data.total} page={data.page} pageCount={data.pageCount} cohorts={data.cohorts} semesters={data.semesters} courses={data.courses} query={data.query} />
+<StudentDirectory rows={data.rows} total={data.total} page={data.page} pageCount={data.pageCount} pageSize={data.pageSize} tokens={data.tokens} matched={data.matched} cohorts={data.cohorts} semesters={data.semesters} courses={data.courses} query={data.query} />

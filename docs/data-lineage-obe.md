@@ -85,3 +85,36 @@ Menjalankannya berulang tanpa perubahan data tidak menulis apa pun (idempoten).
 - Hasil yang tidak dapat dihitung tampil sebagai "belum lengkap" atau "belum dikonfigurasi", bukan 0.
 - Rata-rata dan sebaran hanya memakai data lengkap; jumlah data kurang selalu ditampilkan.
 - Profil dosen hanya memuat hasil di kelas yang diampunya.
+
+## Nilai dari Excel, ambang, dan cetak biru sheet
+
+Sheet Excel prodi memuat tiga blok di kanan tabel mahasiswa. Importer membacanya (`obe-blueprint.ts`) dan menyimpannya pada pemetaan sheet berstatus tersimpan (`import_sheet_mappings.mapping.blueprint`), sehingga setiap angka dapat ditelusuri ke berkas, batch, dan sheet asal.
+
+| Blok | Isi | Dipakai untuk |
+|---|---|---|
+| matriks CPMK terhadap komponen | koefisien tiap komponen pada tiap CPMK | simpul dan tautan jejak komponen ke CPMK |
+| matriks `CPL \ CPMK` | bobot tiap CPMK pada tiap CPL | tautan jejak CPMK ke CPL |
+| ambang | `Threshold Nilai Mahasiswa` (62, minimal BC) dan `Threshold Nilai Capaian` (75, persen mahasiswa) | ambang ketercapaian bila kebijakan OBE belum aktif |
+| ringkasan ketercapaian | jumlah mahasiswa, persen, dan hasil akhir per CPMK | provenance; angka sendiri dihitung ulang dari nilai |
+
+Nilai mahasiswa tidak pernah masuk ke cetak biru.
+
+### Rumus yang dipakai Excel prodi (diperiksa dari rumus sel)
+
+- CPMK = `SUMPRODUCT(nilai komponen, bobot komponen, koefisien) / SUMPRODUCT(bobot komponen, koefisien)`. Sama dengan rumus v1 pada dokumen ini.
+- CPL = `Σ(CPMK × bobot CPL terhadap CPMK) / Σ bobot`. Sama dengan rumus CPL di atas. Bobot yang terbaca mereproduksi nilai CPL Excel pada 7.103 dari 7.146 sel (99,4%) di 102 sheet.
+- Ketercapaian mahasiswa: `COUNTIF(CPMK, ">" & 62)`; ketercapaian kelas: `persen > 75`. Excel memakai lebih besar dari, sedangkan aplikasi memakai lebih besar atau sama dengan (nilai ≥ target, sesuai catatan "minimal BC" pada Excel dan rumus X_ij pada dokumen OBE). Pada Semester 1 sampai 7 tidak ada nilai CPL yang tepat 62, sehingga hasil keduanya sama. Kelas yang rasionya tepat 75% adalah satu-satunya kasus yang dapat berbeda.
+
+### Basis nilai dan ambang
+
+Untuk setiap CPMK atau CPL, nilai dipilih per kelas: hasil hitung sistem bila ada yang lengkap, kolom Excel (`imported_reference`) bila tidak. Basis selalu ditampilkan. Ambang diambil dari kebijakan OBE aktif; bila tidak ada, dari ambang pada sheet Excel kelas itu, dan sumbernya ditandai "Excel". Tanpa keduanya sistem tidak mengklaim ketercapaian.
+
+Penyebab produksi sebelumnya tidak menampilkan mahasiswa yang mencapai CPL: kebijakan OBE aktif tidak ada, sehingga setiap hasil bernilai "target belum diatur"; kolom CPMK dibuang karena definisinya belum ada; analitik program hanya membaca hasil hitung sistem.
+
+### CPMK otomatis
+
+Saat commit, CPMK yang muncul pada kolom atau matriks Excel dibuat pada mata kuliah itu bila belum ada (hanya kode, tanpa deskripsi) dan dicatat di audit (`cpmk.auto_create`). Pemetaan komponen ke CPMK dan CPMK ke CPL pada mesin hitung tidak diisi otomatis; jejak dibaca dari cetak biru.
+
+### Presisi penyimpanan
+
+Nilai disimpan `numeric(9,4)`. Perbandingan nilai baru dan lama memakai toleransi 0,00005 ditambah 1e-9 (`sameStored`) agar nilai yang jatuh tepat di batas pembulatan tidak dianggap berubah pada impor ulang.

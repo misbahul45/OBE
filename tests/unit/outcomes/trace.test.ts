@@ -62,4 +62,18 @@ describe('penyusunan jejak komponen, CPMK, dan CPL', () => {
 		expect(noWeight.links.find((l) => l.from === 'k:UTS-1')!.weight).toBe(1);
 		expect(buildTrace({ ...input, components: [] , blueprint: sampleBlueprint({ cpl: [] }) })).toBeNull();
 	});
+
+	test('tautan ganda untuk pasangan yang sama digabung agar kunci tampilan tidak pernah kembar', () => {
+		const duplicated = sampleBlueprint({
+			cpmk: [{ code: 'CPMK-1', components: [{ componentCode: 'UTS-1', coefficient: 1 }, { componentCode: 'UTS-1', coefficient: 2 }] }],
+			cpl: [{ code: 'CPL-1', links: [{ cpmk: 'CPMK-1', weight: 0.4 }, { cpmk: 'CPMK-1', weight: 0.2 }] }]
+		});
+		const trace = buildTrace({ ...input, blueprint: duplicated })!;
+		const keys = trace.links.map((l) => `${l.from}>${l.to}`);
+		expect(new Set(keys).size).toBe(keys.length);
+		expect(trace.links.find((l) => l.from === 'k:UTS-1')).toMatchObject({ weight: 120, display: 2 });
+		expect(trace.links.find((l) => l.to === 'l:CPL-1')!.weight).toBeCloseTo(0.6);
+		const ids = trace.nodes.map((n) => n.id);
+		expect(new Set(ids).size).toBe(ids.length);
+	});
 });
